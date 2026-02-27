@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp + Trello Integration</title>
+    <meta name="description"
+        content="Dashboard para integração WhatsApp + Trello - Envio de mensagens com confirmação automática de cartões">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0f1c;
+            --bg-secondary: #111827;
+            --bg-card: #1a2236;
+            --bg-card-hover: #1f2a42;
+            --border: #2a3550;
+            --text-primary: #f0f4fc;
+            --text-secondary: #8896b3;
+            --text-muted: #5a6a8a;
+            --accent-green: #25d366;
+            --accent-green-dark: #128c7e;
+            --accent-green-glow: rgba(37, 211, 102, 0.15);
+            --accent-blue: #3b82f6;
+            --accent-blue-glow: rgba(59, 130, 246, 0.15);
+            --accent-red: #ef4444;
+            --accent-red-glow: rgba(239, 68, 68, 0.15);
+            --accent-yellow: #f59e0b;
+            --accent-yellow-glow: rgba(245, 158, 11, 0.15);
+            --accent-purple: #a855f7;
+            --accent-purple-glow: rgba(168, 85, 247, 0.15);
+            --accent-trello: #0079bf;
+            --accent-trello-glow: rgba(0, 121, 191, 0.15);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 20%, rgba(37, 211, 102, 0.04) 0%, transparent 50%),
+                radial-gradient(circle at 70% 80%, rgba(0, 121, 191, 0.04) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.02) 0%, transparent 50%);
+            z-index: 0;
+            animation: bgFloat 20s ease-in-out infinite;
+        }
+
+        @keyframes bgFloat {
+
+            0%,
+            100% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+
+            33% {
+                transform: translate(2%, -2%) rotate(1deg);
+            }
+
+            66% {
+                transform: translate(-1%, 1%) rotate(-0.5deg);
+            }
+        }
+
+        .app {
+            position: relative;
+            z-index: 1;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 28px;
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(26, 34, 54, 0.8) 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 24px;
+            backdrop-filter: blur(20px);
+            box-shadow: var(--shadow);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-green-dark));
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 4px 20px rgba(37, 211, 102, 0.3);
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-green) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .header-badges {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 50px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            transition: var(--transition);
+        }
+
+        .status-badge.connected {
+            background: var(--accent-green-glow);
+            color: var(--accent-green);
+            border: 1px solid rgba(37, 211, 102, 0.25);
+        }
+
+        .status-badge.disconnected {
+            background: var(--accent-red-glow);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        .status-badge.awaiting_qr {
+            background: var(--accent-blue-glow);
+            color: var(--accent-blue);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            animation: pulse-blue 2s ease-in-out infinite;
+        }
+
+        .status-badge.trello-on {
+            background: var(--accent-trello-glow);
+            color: var(--accent-trello);
+            border: 1px solid rgba(0, 121, 191, 0.25);
+        }
+
+        .status-badge.trello-off {
+            background: var(--accent-yellow-glow);
+            color: var(--accent-yellow);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+        }
+
+        @keyframes pulse-blue {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+            }
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* QR Code */
+        .qr-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 40px;
+            background: linear-gradient(145deg, var(--bg-card) 0%, rgba(26, 34, 54, 0.6) 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 24px;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+        .qr-section h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .qr-section p {
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            font-size: 15px;
+        }
+
+        .qr-container {
+            background: white;
+            padding: 20px;
+            border-radius: var(--radius);
+            box-shadow: 0 8px 40px rgba(37, 211, 102, 0.15);
+        }
+
+        .qr-container img {
+            width: 280px;
+            height: 280px;
+            display: block;
+        }
+
+        .qr-loading {
+            width: 280px;
+            height: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent-green);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Stats */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .stat-card {
+            background: linear-gradient(145deg, var(--bg-card) 0%, rgba(26, 34, 54, 0.6) 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            text-align: center;
+            transition: var(--transition);
+            box-shadow: var(--shadow);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(37, 211, 102, 0.2);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Card */
+        .card {
+            background: linear-gradient(145deg, var(--bg-card) 0%, rgba(26, 34, 54, 0.6) 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            border-color: rgba(37, 211, 102, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .card-icon.green {
+            background: var(--accent-green-glow);
+            color: var(--accent-green);
+        }
+
+        .card-icon.blue {
+            background: var(--accent-blue-glow);
+            color: var(--accent-blue);
+        }
+
+        .card-icon.purple {
+            background: var(--accent-purple-glow);
+            color: var(--accent-purple);
+        }
+
+        .card-icon.trello {
+            background: var(--accent-trello-glow);
+            color: var(--accent-trello);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            letter-spacing: 0.3px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            transition: var(--transition);
+            outline: none;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 0 3px var(--accent-green-glow);
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-green-dark));
+            color: white;
+            box-shadow: 0 4px 16px rgba(37, 211, 102, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(37, 211, 102, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--accent-green);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--accent-red), #dc2626);
+            color: white;
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-trello {
+            background: linear-gradient(135deg, var(--accent-trello), #0066a0);
+            color: white;
+            box-shadow: 0 4px 16px rgba(0, 121, 191, 0.3);
+        }
+
+        .btn-trello:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(0, 121, 191, 0.4);
+        }
+
+        .btn-block {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Messages list */
+        .messages-section {
+            background: linear-gradient(145deg, var(--bg-card) 0%, rgba(26, 34, 54, 0.6) 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            box-shadow: var(--shadow);
+        }
+
+        .messages-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .messages-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-container {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-secondary);
+            padding: 4px;
+            border-radius: var(--radius-sm);
+        }
+
+        .tab {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .tab.active {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .tab:hover:not(.active) {
+            color: var(--text-primary);
+        }
+
+        .message-list {
+            max-height: 500px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+
+        .message-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .message-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .message-list::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .message-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+            border-bottom: 1px solid rgba(42, 53, 80, 0.5);
+        }
+
+        .message-item:last-child {
+            border-bottom: none;
+        }
+
+        .message-item:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .msg-avatar {
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .msg-avatar.sent {
+            background: var(--accent-green-glow);
+            color: var(--accent-green);
+        }
+
+        .msg-avatar.received {
+            background: var(--accent-blue-glow);
+            color: var(--accent-blue);
+        }
+
+        .msg-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .msg-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .msg-number {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .msg-time {
+            font-size: 12px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .msg-content {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        .msg-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 50px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-top: 6px;
+        }
+
+        .msg-status.sent {
+            background: var(--accent-green-glow);
+            color: var(--accent-green);
+        }
+
+        .msg-status.delivered {
+            background: var(--accent-blue-glow);
+            color: var(--accent-blue);
+        }
+
+        .msg-status.read {
+            background: var(--accent-purple-glow);
+            color: var(--accent-purple);
+        }
+
+        .msg-status.failed {
+            background: var(--accent-red-glow);
+            color: var(--accent-red);
+        }
+
+        .msg-trello-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 50px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            background: var(--accent-trello-glow);
+            color: var(--accent-trello);
+            margin-top: 6px;
+            margin-left: 6px;
+        }
+
+        /* Trello actions list */
+        .trello-action-item {
+            padding: 14px 16px;
+            border-radius: var(--radius-sm);
+            border-bottom: 1px solid rgba(42, 53, 80, 0.5);
+            transition: var(--transition);
+        }
+
+        .trello-action-item:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .trello-action-item:last-child {
+            border-bottom: none;
+        }
+
+        .trello-action-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .trello-action-number {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .trello-action-time {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .trello-action-cards {
+            margin-top: 8px;
+        }
+
+        .trello-card-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 6px;
+            background: var(--accent-trello-glow);
+            color: var(--accent-trello);
+            font-size: 12px;
+            font-weight: 500;
+            text-decoration: none;
+            margin-right: 6px;
+            margin-bottom: 4px;
+            transition: var(--transition);
+        }
+
+        .trello-card-link:hover {
+            background: rgba(0, 121, 191, 0.25);
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        /* API Reference */
+        .api-section {
+            margin-top: 24px;
+        }
+
+        .api-endpoint {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+        .api-endpoint:hover {
+            border-color: var(--accent-green);
+            background: var(--bg-card-hover);
+        }
+
+        .method {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            min-width: 52px;
+            text-align: center;
+        }
+
+        .method.get {
+            background: var(--accent-blue-glow);
+            color: var(--accent-blue);
+        }
+
+        .method.post {
+            background: var(--accent-green-glow);
+            color: var(--accent-green);
+        }
+
+        .endpoint-path {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            font-family: 'Courier New', monospace;
+        }
+
+        .endpoint-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            animation: slideIn 0.3s ease-out;
+            max-width: 400px;
+            backdrop-filter: blur(20px);
+        }
+
+        .toast.success {
+            border-left: 3px solid var(--accent-green);
+        }
+
+        .toast.error {
+            border-left: 3px solid var(--accent-red);
+        }
+
+        .toast.info {
+            border-left: 3px solid var(--accent-blue);
+        }
+
+        .toast.trello {
+            border-left: 3px solid var(--accent-trello);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 32px;
+            max-width: 640px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: modalIn 0.3s ease;
+        }
+
+        @keyframes modalIn {
+            from {
+                transform: scale(0.95) translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal h3 {
+            margin-bottom: 16px;
+            font-size: 18px;
+        }
+
+        .modal pre {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 20px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--accent-green);
+            font-family: 'Courier New', monospace;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 640px) {
+            .app {
+                padding: 12px;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }
+
+            .header-left {
+                flex-direction: column;
+            }
+
+            .header-badges {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">💬</div>
+                <div>
+                    <h1>WhatsApp + Trello</h1>
+                    <p>Envie mensagens e confirme cartões automaticamente</p>
+                </div>
+            </div>
+            <div class="header-badges">
+                <div id="statusBadge" class="status-badge disconnected">
+                    <span class="status-dot"></span>
+                    <span id="statusText">Desconectado</span>
+                </div>
+                <div id="trelloBadge" class="status-badge trello-off">
+                    <span>📋</span>
+                    <span id="trelloStatusText">Trello: Verificando...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- QR Code Section -->
+        <section id="qrSection" class="qr-section">
+            <h2>📱 Conectar WhatsApp</h2>
+            <p>Escaneie o QR Code abaixo com seu WhatsApp para conectar</p>
+            <div class="qr-container">
+                <div id="qrDisplay" class="qr-loading">
+                    <div class="spinner"></div>
+                    <span>Gerando QR Code...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main content -->
+        <div id="mainContent" style="display: none;">
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-value" id="statSent" style="color: var(--accent-green);">0</div>
+                    <div class="stat-label">Enviadas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statReceived" style="color: var(--accent-blue);">0</div>
+                    <div class="stat-label">Recebidas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statTrelloConfirmed" style="color: var(--accent-trello);">0</div>
+                    <div class="stat-label">Trello Confirmados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statChats" style="color: var(--accent-purple);">0</div>
+                    <div class="stat-label">Chats</div>
+                </div>
+            </div>
+
+            <div class="grid">
+                <!-- Enviar Mensagem -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon green">📤</div>
+                        <span class="card-title">Enviar Mensagem</span>
+                    </div>
+                    <form id="sendForm">
+                        <div class="form-group">
+                            <label for="phoneNumber">Número do telefone</label>
+                            <input type="text" id="phoneNumber" placeholder="5511999998888" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="messageText">Mensagem</label>
+                            <textarea id="messageText" placeholder="Digite sua mensagem aqui..." rows="3"></textarea>
+                        </div>
+                        <button type="submit" id="sendBtn" class="btn btn-primary btn-block">
+                            <span>📨</span> Enviar Mensagem
+                        </button>
+                    </form>
+                    <p style="margin-top: 12px; font-size: 12px; color: var(--text-muted); text-align: center;">
+                        Se o número estiver em um cartão do Trello, ele será confirmado automaticamente ✅
+                    </p>
+                </div>
+
+                <!-- Trello + Verificação -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon trello">📋</div>
+                        <span class="card-title">Trello</span>
+                    </div>
+
+                    <!-- Buscar no Trello -->
+                    <form id="trelloSearchForm">
+                        <div class="form-group">
+                            <label for="trelloSearchNumber">Buscar número nos cartões</label>
+                            <input type="text" id="trelloSearchNumber" placeholder="5511999998888" autocomplete="off">
+                        </div>
+                        <button type="submit" class="btn btn-trello btn-block">
+                            <span>🔍</span> Buscar no Trello
+                        </button>
+                    </form>
+                    <div id="trelloSearchResult" style="margin-top: 16px; display: none;"></div>
+
+                    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button id="refreshChatsBtn" class="btn btn-secondary" style="flex: 1;">
+                                💬 Chats
+                            </button>
+                            <button id="trelloListsBtn" class="btn btn-secondary" style="flex: 1;">
+                                📋 Listas
+                            </button>
+                            <button id="logoutBtn" class="btn btn-danger" style="flex: 1;">
+                                🚪 Sair
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mensagens + Trello Actions -->
+            <div class="grid">
+                <!-- Mensagens -->
+                <div class="messages-section">
+                    <div class="messages-header">
+                        <h3>📋 Mensagens</h3>
+                        <div class="tab-container">
+                            <button class="tab active" data-tab="sent" onclick="switchTab('sent')">Enviadas</button>
+                            <button class="tab" data-tab="received" onclick="switchTab('received')">Recebidas</button>
+                        </div>
+                    </div>
+                    <div id="messageList" class="message-list">
+                        <div class="empty-state">
+                            <div class="icon">📭</div>
+                            <p>Nenhuma mensagem ainda</p>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin-top: 16px;">
+                        <button id="loadMoreBtn" class="btn btn-secondary" style="display: none;"
+                            onclick="loadMore()">Carregar mais</button>
+                    </div>
+                </div>
+
+                <!-- Trello Actions -->
+                <div class="messages-section">
+                    <div class="messages-header">
+                        <h3>🔗 Confirmações Trello</h3>
+                        <button class="btn btn-secondary" onclick="loadTrelloActions()"
+                            style="font-size: 12px; padding: 6px 12px;">🔄 Atualizar</button>
+                    </div>
+                    <div id="trelloActionsList" class="message-list">
+                        <div class="empty-state">
+                            <div class="icon">📋</div>
+                            <p>Nenhuma confirmação automática ainda</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Reference -->
+            <section class="api-section">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon blue">📡</div>
+                        <span class="card-title">API Endpoints</span>
+                    </div>
+                    <div class="api-endpoint" onclick="copyEndpoint('/api/messages/send')">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/api/messages/send</span>
+                        <span class="endpoint-desc">Enviar + confirmar Trello</span>
+                    </div>
+                    <div class="api-endpoint" onclick="copyEndpoint('/api/messages/send-bulk')">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/api/messages/send-bulk</span>
+                        <span class="endpoint-desc">Envio em lote + Trello</span>
+                    </div>
+                    <div class="api-endpoint" onclick="copyEndpoint('/api/trello/status')">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/api/trello/status</span>
+                        <span class="endpoint-desc">Status Trello</span>
+                    </div>
+                    <div class="api-endpoint" onclick="copyEndpoint('/api/trello/search')">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/api/trello/search</span>
+                        <span class="endpoint-desc">Buscar cartões</span>
+                    </div>
+                    <div class="api-endpoint" onclick="copyEndpoint('/api/trello/actions')">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/api/trello/actions</span>
+                        <span class="endpoint-desc">Histórico confirmações</span>
+                    </div>
+                    <div class="api-endpoint" onclick="copyEndpoint('/api/status')">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/api/status</span>
+                        <span class="endpoint-desc">Status WhatsApp</span>
+                    </div>
+                    <div class="api-endpoint" onclick="copyEndpoint('/api/messages/sent')">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/api/messages/sent</span>
+                        <span class="endpoint-desc">Mensagens enviadas</span>
+                    </div>
+                    <div class="api-endpoint" onclick="copyEndpoint('/api/messages/received')">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/api/messages/received</span>
+                        <span class="endpoint-desc">Mensagens recebidas</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <h3 id="modalTitle">Resposta JSON</h3>
+            <pre id="modalContent"></pre>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="copyJSON()">📋 Copiar</button>
+                <button class="btn btn-primary" onclick="closeModal()">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTab = 'sent';
+        let currentOffset = 0;
+        const PAGE_SIZE = 20;
+        let lastJsonResponse = '';
+        let totalTrelloConfirmed = 0;
+
+        // =====================
+        //  Status Polling
+        // =====================
+        async function pollStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                if (data.success) updateStatusUI(data.data);
+            } catch (e) { }
+        }
+
+        function updateStatusUI(status) {
+            const badge = document.getElementById('statusBadge');
+            const text = document.getElementById('statusText');
+            const qr = document.getElementById('qrSection');
+            const main = document.getElementById('mainContent');
+            badge.classList.remove('connected', 'disconnected', 'awaiting_qr');
+
+            if (status.status === 'connected') {
+                badge.classList.add('connected');
+                text.textContent = `Conectado · ${status.number}`;
+                qr.style.display = 'none';
+                main.style.display = 'block';
+            } else if (status.status === 'awaiting_qr') {
+                badge.classList.add('awaiting_qr');
+                text.textContent = 'Aguardando QR Code';
+                qr.style.display = 'flex';
+                main.style.display = 'none';
+                loadQR();
+            } else {
+                badge.classList.add('disconnected');
+                text.textContent = 'Desconectado';
+                qr.style.display = 'flex';
+                main.style.display = 'none';
+            }
+        }
+
+        // =====================
+        //  Trello Status
+        // =====================
+        async function pollTrelloStatus() {
+            try {
+                const res = await fetch('/api/trello/status');
+                const data = await res.json();
+                const badge = document.getElementById('trelloBadge');
+                const text = document.getElementById('trelloStatusText');
+
+                if (data.success && data.data.configured) {
+                    badge.classList.remove('trello-off');
+                    badge.classList.add('trello-on');
+                    text.textContent = `Trello: ${data.data.board?.name || 'Conectado'}`;
+                } else {
+                    badge.classList.remove('trello-on');
+                    badge.classList.add('trello-off');
+                    text.textContent = 'Trello: Não configurado';
+                }
+            } catch (e) {
+                document.getElementById('trelloStatusText').textContent = 'Trello: Erro';
+            }
+        }
+
+        // =====================
+        //  QR Code
+        // =====================
+        async function loadQR() {
+            try {
+                const res = await fetch('/api/status/qr');
+                const data = await res.json();
+                const display = document.getElementById('qrDisplay');
+                if (data.success && data.data.qrCode) {
+                    display.innerHTML = `<img src="${data.data.qrCode}" alt="QR Code">`;
+                } else if (data.data?.connected) {
+                    display.innerHTML = '<span style="color:var(--accent-green);font-size:48px;">✅</span><span>Conectado!</span>';
+                }
+            } catch (e) { }
+        }
+
+        // =====================
+        //  Send Message
+        // =====================
+        document.getElementById('sendForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const number = document.getElementById('phoneNumber').value.trim();
+            const text = document.getElementById('messageText').value.trim();
+
+            if (!number || !text) { showToast('Preencha o número e a mensagem', 'error'); return; }
+
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div> Enviando...';
+
+            try {
+                const res = await fetch('/api/messages/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ number, text }),
+                });
+                const data = await res.json();
+
+                showModal('Resposta - Envio de Mensagem', data);
+
+                if (data.success) {
+                    showToast(`Mensagem enviada para ${number}!`, 'success');
+                    document.getElementById('messageText').value = '';
+                    loadMessages();
+                    updateStats();
+
+                    // Trello confirmation toast
+                    if (data.data?.trello?.cardsConfirmed > 0) {
+                        const cards = data.data.trello.confirmedCards;
+                        totalTrelloConfirmed += cards.length;
+                        document.getElementById('statTrelloConfirmed').textContent = totalTrelloConfirmed;
+
+                        for (const card of cards) {
+                            showToast(`📋 Cartão "${card.cardName}" confirmado no Trello!`, 'trello');
+                        }
+                        loadTrelloActions();
+                    }
+                } else {
+                    showToast(`Erro: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showToast(`Erro: ${error.message}`, 'error');
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<span>📨</span> Enviar Mensagem';
+        });
+
+        // =====================
+        //  Trello Search
+        // =====================
+        document.getElementById('trelloSearchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const number = document.getElementById('trelloSearchNumber').value.trim();
+            if (!number) { showToast('Informe um número', 'error'); return; }
+
+            try {
+                const res = await fetch('/api/trello/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ number }),
+                });
+                const data = await res.json();
+                const result = document.getElementById('trelloSearchResult');
+                result.style.display = 'block';
+
+                if (data.success && data.total > 0) {
+                    const cardsHtml = data.data.map(c => `
+            <div style="padding:8px;margin-bottom:6px;background:var(--bg-secondary);border-radius:8px;font-size:13px;">
+              <strong>${escapeHtml(c.name)}</strong>
+              <span style="color:var(--text-muted);font-size:11px;margin-left:6px;">encontrado no ${c.matchedIn === 'title' ? 'título' : 'descrição'}</span>
+              ${c.url ? `<a href="${c.url}" target="_blank" class="trello-card-link" style="display:inline-flex;margin-top:4px;">🔗 Abrir</a>` : ''}
+            </div>
+          `).join('');
+
+                    result.innerHTML = `
+            <div style="padding:12px;background:var(--accent-trello-glow);border:1px solid rgba(0,121,191,0.25);border-radius:var(--radius-sm);">
+              <div style="color:var(--accent-trello);font-size:14px;font-weight:600;margin-bottom:8px;">
+                📋 ${data.total} cartão(ões) encontrado(s)
+              </div>
+              ${cardsHtml}
+            </div>`;
+                } else {
+                    result.innerHTML = `
+            <div style="padding:12px;background:var(--accent-yellow-glow);border:1px solid rgba(245,158,11,0.25);border-radius:var(--radius-sm);color:var(--accent-yellow);font-size:14px;">
+              ⚠️ Nenhum cartão encontrado com o número <strong>${number}</strong>
+            </div>`;
+                }
+            } catch (error) {
+                showToast(`Erro: ${error.message}`, 'error');
+            }
+        });
+
+        // =====================
+        //  Messages
+        // =====================
+        function switchTab(tab) {
+            currentTab = tab;
+            currentOffset = 0;
+            document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+            loadMessages();
+        }
+
+        async function loadMessages() {
+            const endpoint = currentTab === 'sent' ? '/api/messages/sent' : '/api/messages/received';
+            try {
+                const res = await fetch(`${endpoint}?limit=${PAGE_SIZE}&offset=${currentOffset}`);
+                const data = await res.json();
+                const list = document.getElementById('messageList');
+                const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+                if (!data.success || data.data.length === 0) {
+                    if (currentOffset === 0) {
+                        list.innerHTML = `<div class="empty-state"><div class="icon">${currentTab === 'sent' ? '📤' : '📥'}</div><p>Nenhuma mensagem ${currentTab === 'sent' ? 'enviada' : 'recebida'} ainda</p></div>`;
+                    }
+                    loadMoreBtn.style.display = 'none';
+                    return;
+                }
+
+                const html = data.data.map(msg => {
+                    const isSent = currentTab === 'sent';
+                    const numberDisplay = isSent ? msg.to : msg.from;
+                    const initial = (numberDisplay || '?').charAt(0).toUpperCase();
+                    const name = msg.pushName || numberDisplay;
+                    const time = formatTime(msg.timestamp);
+                    const content = msg.content || msg.text || '[sem conteúdo]';
+
+                    let statusHtml = '';
+                    if (isSent && msg.status) {
+                        const statusLabels = { sent: '✓ Enviado', delivered: '✓✓ Entregue', read: '✓✓ Lido', failed: '✗ Falhou' };
+                        statusHtml = `<span class="msg-status ${msg.status}">${statusLabels[msg.status] || msg.status}</span>`;
+                    }
+
+                    return `
+            <div class="message-item">
+              <div class="msg-avatar ${isSent ? 'sent' : 'received'}">${initial}</div>
+              <div class="msg-body">
+                <div class="msg-top">
+                  <span class="msg-number">${escapeHtml(name)}</span>
+                  <span class="msg-time">${time}</span>
+                </div>
+                <div class="msg-content">${escapeHtml(content)}</div>
+                ${statusHtml}
+              </div>
+            </div>`;
+                }).join('');
+
+                if (currentOffset === 0) list.innerHTML = html;
+                else list.innerHTML += html;
+
+                loadMoreBtn.style.display = data.pagination.hasMore ? 'inline-flex' : 'none';
+            } catch (error) { }
+        }
+
+        function loadMore() { currentOffset += PAGE_SIZE; loadMessages(); }
+
+        // =====================
+        //  Trello Actions
+        // =====================
+        async function loadTrelloActions() {
+            try {
+                const res = await fetch('/api/trello/actions?limit=20');
+                const data = await res.json();
+                const list = document.getElementById('trelloActionsList');
+
+                if (!data.success || data.data.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>Nenhuma confirmação automática ainda</p></div>';
+                    return;
+                }
+
+                list.innerHTML = data.data.map(action => {
+                    const cardsHtml = (action.cards || []).map(c =>
+                        `<a href="${c.cardUrl || '#'}" target="_blank" class="trello-card-link">✅ ${escapeHtml(c.cardName)}</a>`
+                    ).join('');
+
+                    return `
+            <div class="trello-action-item">
+              <div class="trello-action-header">
+                <span class="trello-action-number">📱 ${action.number}</span>
+                <span class="trello-action-time">${formatTime(action.timestamp)}</span>
+              </div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">
+                "${escapeHtml(action.message || '')}"
+              </div>
+              <div class="trello-action-cards">${cardsHtml}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                ${action.cardsFound} encontrado(s) · ${action.cardsConfirmed} confirmado(s)
+              </div>
+            </div>`;
+                }).join('');
+
+                // Update stat
+                totalTrelloConfirmed = data.data.reduce((sum, a) => sum + (a.cardsConfirmed || 0), 0);
+                document.getElementById('statTrelloConfirmed').textContent = totalTrelloConfirmed;
+            } catch (e) { }
+        }
+
+        // =====================
+        //  Stats
+        // =====================
+        async function updateStats() {
+            try {
+                const [sentRes, recvRes] = await Promise.all([
+                    fetch('/api/messages/sent?limit=1'),
+                    fetch('/api/messages/received?limit=1'),
+                ]);
+                const sentData = await sentRes.json();
+                const recvData = await recvRes.json();
+                document.getElementById('statSent').textContent = sentData.pagination?.total || 0;
+                document.getElementById('statReceived').textContent = recvData.pagination?.total || 0;
+            } catch (e) { }
+        }
+
+        // =====================
+        //  Buttons
+        // =====================
+        document.getElementById('refreshChatsBtn').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/status/chats');
+                const data = await res.json();
+                showModal('Conversas / Chats', data);
+                document.getElementById('statChats').textContent = data.total || 0;
+            } catch (e) { showToast(`Erro: ${e.message}`, 'error'); }
+        });
+
+        document.getElementById('trelloListsBtn').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/trello/lists');
+                const data = await res.json();
+                showModal('Listas do Trello', data);
+            } catch (e) { showToast(`Erro: ${e.message}`, 'error'); }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            if (!confirm('Tem certeza que deseja desconectar?')) return;
+            try {
+                await fetch('/api/status/logout', { method: 'POST' });
+                showToast('Desconectado', 'info');
+            } catch (e) { showToast(`Erro: ${e.message}`, 'error'); }
+        });
+
+        // =====================
+        //  Modal
+        // =====================
+        function showModal(title, data) {
+            lastJsonResponse = JSON.stringify(data, null, 2);
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalContent').textContent = lastJsonResponse;
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+        function closeModal(e) {
+            if (!e || e.target === document.getElementById('modalOverlay'))
+                document.getElementById('modalOverlay').classList.remove('active');
+        }
+        function copyJSON() { navigator.clipboard.writeText(lastJsonResponse); showToast('JSON copiado!', 'success'); }
+        function copyEndpoint(path) { navigator.clipboard.writeText(`http://localhost:3000${path}`); showToast(`Copiado: ${path}`, 'info'); }
+
+        // =====================
+        //  Toast
+        // =====================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const icons = { success: '✅', error: '❌', info: 'ℹ️', trello: '📋' };
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${escapeHtml(message)}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // =====================
+        //  Utilities
+        // =====================
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        function formatTime(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            if (diff < 60000) return 'Agora';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)}min`;
+            if (diff < 86400000) return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        }
+
+        // =====================
+        //  Init
+        // =====================
+        pollStatus();
+        pollTrelloStatus();
+        setInterval(pollStatus, 3000);
+        setInterval(pollTrelloStatus, 15000);
+        setInterval(() => {
+            if (document.getElementById('statusBadge').classList.contains('connected')) {
+                loadMessages();
+                updateStats();
+            }
+        }, 5000);
+        loadTrelloActions();
+    </script>
+</body>
+
+</html>
