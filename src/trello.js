@@ -8,6 +8,7 @@ let config = {
     apiKey: null,
     token: null,
     boardId: null,
+    targetListId: null,
 };
 
 // Log de ações do Trello
@@ -26,8 +27,23 @@ async function initTrello() {
     if (isConfigured) {
         try {
             const board = await trelloFetch(`/boards/${config.boardId}?fields=id,name`);
-            config.boardId = board.id; // Garante o ID longo
+            config.boardId = board.id;
             console.log(`🔗 Trello Conectado: Board "${board.name}"`);
+
+            // Buscar ID da lista de destino (Concluído)
+            const listName = process.env.TRELLO_CONFIRMED_LIST_NAME || "Concluído";
+            const lists = await trelloFetch(`/boards/${config.boardId}/lists?fields=id,name`);
+            const target = lists.find(l => l.name.toLowerCase().includes(listName.toLowerCase()));
+
+            if (target) {
+                config.targetListId = target.id;
+                console.log(`📌 Lista de destino configurada: "${target.name}" (${target.id})`);
+            } else {
+                console.warn(`⚠️ Lista "${listName}" não encontrada no board.`);
+                console.log("   Colunas disponíveis no seu board:");
+                lists.forEach(l => console.log(`   - ${l.name}`));
+                console.log("   Dica: Ajuste o TRELLO_CONFIRMED_LIST_NAME no arquivo .env para um desses nomes.");
+            }
         } catch (error) {
             console.error(`❌ Erro Trello: ${error.message}`);
         }
@@ -61,49 +77,49 @@ async function trelloFetch(endpoint, method = "GET", body = null) {
 }
 
 /**
- * Adicionar Etiqueta Verde ao cartão
+ * Atualiza a etiqueta do cartão (Remove anteriores e coloca a nova)
+ * @param {string} cardId ID do cartão
+ * @param {Array} existingLabelIds IDs das etiquetas atuais no cartão
+ * @param {string} color Cor da nova etiqueta ('green' ou 'yellow')
  */
-async function addGreenLabel(cardId) {
+async function updateCardLabel(cardId, existingLabelIds, color) {
     try {
-        // 1. Ver se o board já tem uma etiqueta verde
-        const labels = await trelloFetch(`/boards/${config.boardId}/labels`);
-        let greenLabel = labels.find(l => l.color === "green");
+        // 1. Remover etiquetas atuais do cartão para ele ter apenas UMA
+        if (existingLabelIds && existingLabelIds.length > 0) {
+            for (const labelId of existingLabelIds) {
+                try {
+                    await trelloFetch(`/cards/${cardId}/idLabels/${labelId}`, "DELETE");
+                } catch (e) {
+                    // Ignora erros ao tentar remover etiquetas que podem já ter sumido
+                }
+            }
+        }
 
-        // 2. Se não tiver, cria uma
-        if (!greenLabel) {
-            greenLabel = await trelloFetch("/labels", "POST", {
-                name: "Confirmado",
-                color: "green",
+        // 2. Ver se o board já tem a etiqueta da cor desejada
+        const labels = await trelloFetch(`/boards/${config.boardId}/labels`);
+        let targetLabel = labels.find(l => l.color === color);
+
+        // 3. Se não tiver no board, cria uma
+        if (!targetLabel) {
+            const name = color === "green" ? "Confirmado" : "Expirado/Atrasado";
+            targetLabel = await trelloFetch("/labels", "POST", {
+                name,
+                color,
                 idBoard: config.boardId
             });
         }
 
-        // 3. Tenta colocar a etiqueta no cartão
-        // Usamos o endpoint de adicionar label por ID
+        // 4. Coloca a etiqueta no cartão
         await trelloFetch(`/cards/${cardId}/idLabels`, "POST", {
-            value: greenLabel.id
+            value: targetLabel.id
         });
 
-        console.log(`   🎨 Etiqueta verde adicionada ao cartão ${cardId}`);
+        console.log(`   🎨 Etiqueta ${color} aplicada ao cartão ${cardId}`);
     } catch (error) {
-        // Se o erro for "label already on card", ignoramos
-        if (!error.message.includes("already")) {
-            console.error(`   ⚠️ Erro na etiqueta: ${error.message}`);
-        }
+        console.error(`   ⚠️ Erro ao atualizar etiqueta (${color}): ${error.message}`);
     }
 }
 
-/**
- * Adicionar Comentário
- */
-async function addComment(cardId, text) {
-    try {
-        await trelloFetch(`/cards/${cardId}/actions/comments`, "POST", { text });
-        console.log(`   💬 Comentário adicionado ao cartão ${cardId}`);
-    } catch (error) {
-        console.error(`   ⚠️ Erro no comentário: ${error.message}`);
-    }
-}
 
 /**
  * Buscar cartões com o número
@@ -115,7 +131,7 @@ async function findCardsWithNumber(number) {
 
     const found = [];
     try {
-        const cards = await trelloFetch(`/boards/${config.boardId}/cards?fields=name,desc,shortUrl`);
+        const cards = await trelloFetch(`/boards/${config.boardId}/cards?fields=name,desc,shortUrl,due,idLabels,dueComplete`);
 
         for (const card of cards) {
             // Limpa o conteúdo do cartão para comparar números puros
@@ -153,22 +169,43 @@ async function processConfirmation(number, message, status) {
     for (const card of cards) {
         console.log(`   🛠️ Processando cartão: "${card.name}" (${card.id})`);
 
-        // 1. Etiqueta
+        // 1. Determinar cor da etiqueta (Verde vs Amarelo para expirados)
+        let labelColor = "green";
+        if (card.due) {
+            const dueDate = new Date(card.due);
+            const now = new Date();
+            // Se a data passou e não está marcada como completa
+            if (dueDate < now && !card.dueComplete) {
+                console.log(`   ⏰ Cartão expira(ou) em ${dueDate.toLocaleString()}. Usando AMARRELO.`);
+                labelColor = "yellow";
+            }
+        }
+
+        // 2. Aplicar etiqueta (Remove as antigas e coloca a nova)
         try {
-            await addGreenLabel(card.id);
+            await updateCardLabel(card.id, card.idLabels, labelColor);
         } catch (e) {
             console.error(`   ❌ Falha na etiqueta: ${e.message}`);
         }
 
-        // 2. Comentário
+        // 3. Mover para a lista de concluídos e marcar prazo como concluído
         try {
-            const time = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-            const note = `✅ **CONFIRMADO AUTOMATICAMENTE**\n📱 Mensagem detectada via WhatsApp\n💬 Texto: "${message.substring(0, 100)}..."\n🕐 ${time}`;
-            await addComment(card.id, note);
-            confirmed.push({ id: card.id, name: card.name });
+            const updateBody = {
+                dueComplete: true
+            };
+
+            if (config.targetListId) {
+                updateBody.idList = config.targetListId;
+                console.log(`   📦 Movendo cartão para lista ID: ${config.targetListId}`);
+            }
+
+            await trelloFetch(`/cards/${card.id}`, "PUT", updateBody);
         } catch (e) {
-            console.error(`   ❌ Falha no comentário: ${e.message}`);
+            console.error(`   ❌ Falha ao mover/concluir cartão: ${e.message}`);
         }
+
+        // Confirmamos que o cartão foi processado
+        confirmed.push({ id: card.id, name: card.name, cardUrl: card.shortUrl });
     }
 
     const action = {

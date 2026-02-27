@@ -3,23 +3,41 @@ const router = express.Router();
 const whatsapp = require("../whatsapp");
 
 /**
- * GET /api/status
- * Retorna o status da conexão com o WhatsApp
+ * GET /api/status/all
+ * Lista todas as instâncias e seus status
  */
-router.get("/", (req, res) => {
+router.get("/all", (req, res) => {
     res.json({
         success: true,
-        data: whatsapp.getStatus(),
+        data: whatsapp.getAllStatus(),
+    });
+});
+
+/**
+ * GET /api/status
+ * Retorna o status de uma instância específica
+ */
+router.get("/", (req, res) => {
+    const sessionId = req.query.sessionId || "default";
+    const status = whatsapp.getStatus(sessionId);
+    if (!status) return res.status(404).json({ success: false, error: "Sessão não encontrada" });
+
+    res.json({
+        success: true,
+        data: status,
     });
 });
 
 /**
  * GET /api/status/qr
- * Retorna o QR Code como Data URL (base64) para exibir no frontend
+ * Retorna o QR Code de uma sessão específica
  */
 router.get("/qr", async (req, res) => {
     try {
-        const status = whatsapp.getStatus();
+        const sessionId = req.query.sessionId || "default";
+        const status = whatsapp.getStatus(sessionId);
+
+        if (!status) return res.status(404).json({ success: false, error: "Sessão não encontrada" });
 
         if (status.status === "connected") {
             return res.json({
@@ -28,7 +46,7 @@ router.get("/qr", async (req, res) => {
             });
         }
 
-        const qrDataURL = await whatsapp.getQRCodeDataURL();
+        const qrDataURL = await whatsapp.getQRCodeDataURL(sessionId);
 
         res.json({
             success: true,
@@ -46,37 +64,53 @@ router.get("/qr", async (req, res) => {
 });
 
 /**
- * GET /api/status/chats
- * Listar conversas/chats
+ * POST /api/status/create
+ * Cria uma nova sessão
  */
-router.get("/chats", async (req, res) => {
+router.post("/create", async (req, res) => {
     try {
-        const chats = await whatsapp.getChats();
+        const { sessionId } = req.body;
+        if (!sessionId) return res.status(400).json({ success: false, error: "sessionId é obrigatório" });
 
-        res.json({
-            success: true,
-            total: chats.length,
-            data: chats,
-        });
+        await whatsapp.startWhatsApp(sessionId);
+        res.json({ success: true, message: `Sessão ${sessionId} iniciada` });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message,
-        });
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
 /**
+ * GET /api/status/filters
+ */
+router.get("/filters", (req, res) => {
+    res.json({
+        success: true,
+        data: whatsapp.getFilters(),
+    });
+});
+
+/**
+ * POST /api/status/filters
+ */
+router.post("/filters", (req, res) => {
+    const { keywords, mediaTypes } = req.body;
+    const newFilters = whatsapp.setFilters(keywords, mediaTypes);
+    res.json({
+        success: true,
+        data: newFilters,
+    });
+});
+
+/**
  * POST /api/status/logout
- * Desconectar do WhatsApp
  */
 router.post("/logout", async (req, res) => {
     try {
-        await whatsapp.logout();
-
+        const sessionId = req.body.sessionId || "default";
+        await whatsapp.logout(sessionId);
         res.json({
             success: true,
-            message: "Desconectado com sucesso",
+            message: "Sessão desconectada com sucesso",
         });
     } catch (error) {
         res.status(500).json({

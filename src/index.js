@@ -2,7 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const path = require("path");
-const { startWhatsApp } = require("./whatsapp");
+const { initAllSessions } = require("./whatsapp");
 const { initTrello } = require("./trello");
 
 const app = express();
@@ -55,6 +55,6 @@ app.listen(PORT, async () => {
     await initTrello();
 
     // Iniciar conexão com WhatsApp
-    console.log("🔄 Iniciando conexão com WhatsApp...\n");
-    await startWhatsApp();
+    console.log("🔄 Iniciando sessões do WhatsApp...\n");
+    await initAllSessions();
 });
