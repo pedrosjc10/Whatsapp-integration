@@ -49,10 +49,11 @@ async function startServer() {
         console.log("🍃 Conectado ao MongoDB Atlas!");
     } catch (err) {
         console.error("❌ Erro ao conectar ao MongoDB:", err.message);
-        process.exit(1);
+        console.log("⚠️ Continuando sem DB (Atenção: Auth não funcionará!)");
     }
 
-    app.listen(PORT, async () => {
+    app.listen(PORT, "0.0.0.0", async () => {
+        console.log(`🚀 Servidor voando na porta ${PORT}`);
         console.log(`
 ╔══════════════════════════════════════════════════════╗
 ║       🟢 WhatsApp + Trello Integration API           ║
