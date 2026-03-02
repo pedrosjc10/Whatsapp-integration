@@ -43,29 +43,35 @@
             <div class="panel">
                 <div class="panel-title"><span>⚙️</span> Sessão: <span id="currentSessionName">default</span></div>
 
-                <!-- Formulário Trello -->
-                <div class="trello-config-box" id="trelloConfigBox">
-                    <label
-                        style="color: var(--accent-trello); font-weight: 700; margin-bottom: 12px; display: block;">🔗
-                        CONECTAR TRELLO DESTA CONTA</label>
-                    <div class="form-group">
-                        <label>Trello API Key</label>
-                        <input type="password" id="trelloKey" placeholder="Sua API Key">
-                    </div>
-                    <div class="form-group">
-                        <label>Trello Token</label>
-                        <input type="password" id="trelloToken" placeholder="Seu Token">
-                    </div>
-                    <div class="form-group">
-                        <label>Board ID</label>
-                        <input type="text" id="trelloBoardId" placeholder="ID do Quadro">
-                    </div>
-                    <button class="btn btn-trello" style="width: 100%;" onclick="saveTrelloConfig()">
-                        📡 Salvar e Conectar Quadro
-                    </button>
-                    <p id="trelloStatusMsg"
-                        style="font-size: 11px; margin-top: 10px; text-align: center; color: var(--text-secondary);">
+                <!-- Status do Trello -->
+                <div class="trello-config-box" id="trelloConfigBox"
+                    style="border: none; background: rgba(0,0,0,0.1); margin-bottom: 20px;">
+                    <p id="trelloStatusMsg" style="font-size: 13px; text-align: center; color: #fff;">
+                        ⌛ Carregando status do Trello...
                     </p>
+                </div>
+
+                <!-- Configuração de Filtros SaaS -->
+                <div
+                    style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 24px;">
+                    <div
+                        style="font-size: 12px; font-weight: 700; color: var(--accent-blue); margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px;">
+                        🎯 Filtros de Automação
+                    </div>
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label style="font-size: 11px;">Palavras-Chave (ex: ok, feito)</label>
+                        <input type="text" id="filterKeywords" placeholder="Vazio = Todas"
+                            style="height: 38px; font-size: 13px;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="font-size: 11px;">Mídias (ex: image, video)</label>
+                        <input type="text" id="filterMediaTypes" placeholder="Tipos de arquivo"
+                            style="height: 38px; font-size: 13px;">
+                    </div>
+                    <button class="btn btn-primary" style="width: 100%; height: 38px; font-size: 13px;"
+                        onclick="saveFilters()">
+                        💾 Salvar Filtros
+                    </button>
                 </div>
 
                 <!-- Envio de Mensagem -->
@@ -116,8 +122,71 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
-        let currentSession = 'default';
+        let currentSession = null;
         let instances = [];
+        let userData = null;
+
+        /**
+         * Verifica o login e pega os dados do usuário
+         */
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+
+                if (!data.success) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                userData = data.user;
+                currentSession = userData.sessionId;
+                document.getElementById('currentSessionName').textContent = userData.email;
+
+                // Preencher filtros existentes
+                if (userData.filterKeywords) document.getElementById('filterKeywords').value = userData.filterKeywords.join(', ');
+                if (userData.filterMediaTypes) document.getElementById('filterMediaTypes').value = userData.filterMediaTypes.join(', ');
+
+                // Inicializar dashboard com os dados do usuário
+                await initDashboard();
+            } catch (err) {
+                window.location.href = '/login';
+            }
+        }
+
+        async function saveFilters() {
+            const keywords = document.getElementById('filterKeywords').value;
+            const mediaTypes = document.getElementById('filterMediaTypes').value;
+
+            toast("Salvando filtros...", "info");
+
+            const res = await fetch('/api/auth/filters', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keywords, mediaTypes, sessionId: currentSession })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                toast("Filtros atualizados!", "success");
+            } else {
+                toast("Erro ao salvar filtros", "error");
+            }
+        }
+
+        async function initDashboard() {
+            // Garantir que a sessão dele exista no servidor (caso seja novo)
+            await fetch('/api/status/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: currentSession })
+            });
+
+            loadSessions();
+            loadTrelloActions();
+            loadTrelloStatus();
+            setInterval(loadSessions, 7000);
+        }
 
         async function loadSessions() {
             try {
@@ -126,13 +195,17 @@
                 instances = data.data;
 
                 const grid = document.getElementById('sessionsGrid');
-                const addCard = grid.querySelector('.add-session-card');
+                // const addCard = grid.querySelector('.add-session-card'); // Removed as per instruction
                 grid.innerHTML = '';
 
-                instances.forEach(inst => {
+                // Mostrar apenas a sessão do usuário ou todas se for admin? (Por enquanto, focar no dele)
+                const userSession = instances.find(i => i.id === currentSession);
+
+                if (userSession) {
+                    const inst = userSession;
                     const card = document.createElement('div');
-                    card.className = `session-card ${inst.id === currentSession ? 'active' : ''}`;
-                    card.onclick = () => selectSession(inst.id);
+                    card.className = `session-card active`;
+                    // card.onclick = () => selectSession(inst.id); // Removed as per instruction
 
                     let statusText = inst.status.replace('_', ' ');
                     let qrHtml = '';
@@ -148,19 +221,21 @@
                             <span class="status-pill ${inst.status}">${statusText}</span>
                         </div>
                         <div style="font-size:12px; display:flex; justify-content:space-between; align-items:center;">
-                            <span>${inst.number || 'Logar...'}</span>
-                            <span style="font-size:10px; color:${inst.hasQR ? 'var(--accent-blue)' : 'var(--text-secondary)'}">
+                            <span>${inst.number || 'Escaneie o QR Code'}</span>
+                            <!-- <span style="font-size:10px; color:${inst.hasQR ? 'var(--accent-blue)' : 'var(--text-secondary)'}">
                                 ${inst.status === 'connected' ? '✅ Online' : '⚙️ Configurando'}
-                            </span>
+                            </span> -->
                         </div>
                         ${qrHtml}
-                        <div style="margin-top:10px; display:flex; gap:5px;">
+                        <!-- <div style="margin-top:10px; display:flex; gap:5px;">
                             <button class="btn btn-secondary" style="flex:1; padding:5px; font-size:10px;" onclick="event.stopPropagation(); logout('${inst.id}')">Sair</button>
-                        </div>
+                        </div> -->
                     `;
                     grid.appendChild(card);
-                });
-                grid.appendChild(addCard);
+                } else {
+                    grid.innerHTML = '<div style="color:var(--text-secondary)">Inicializando sua conexão...</div>';
+                }
+                // grid.appendChild(addCard); // Removed as per instruction
             } catch (e) { console.error("Erro loadSessions", e); }
         }
 
@@ -173,13 +248,13 @@
             }
         }
 
-        async function selectSession(id) {
-            currentSession = id;
-            document.getElementById('currentSessionName').textContent = id;
-            loadSessions();
-            loadHistory('sent');
-            loadTrelloStatus();
-        }
+        // async function selectSession(id) { // Removed as per instruction
+        //     currentSession = id;
+        //     document.getElementById('currentSessionName').textContent = id;
+        //     loadSessions();
+        //     loadHistory('sent');
+        //     loadTrelloStatus();
+        // }
 
         async function loadTrelloStatus() {
             const res = await fetch(`/api/trello/status?sessionId=${currentSession}`);
@@ -190,38 +265,9 @@
             if (data.data.configured) {
                 box.classList.add('configured');
                 msg.innerHTML = `🟢 Conectado ao Board: <b>${data.data.board.name}</b>`;
-                // Se quiser preencher os campos, precisaria retornar eles na rota de status (opcional por segurança)
             } else {
                 box.classList.remove('configured');
-                msg.textContent = "🔴 Trello não configurado para esta conta.";
-            }
-        }
-
-        async function saveTrelloConfig() {
-            const apiKey = document.getElementById('trelloKey').value;
-            const token = document.getElementById('trelloToken').value;
-            const boardId = document.getElementById('trelloBoardId').value;
-
-            if (!apiKey || !token || !boardId) return toast("Preencha todos os campos do Trello", "error");
-
-            toast("Validando credenciais...", "info");
-
-            const res = await fetch('/api/trello/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionId: currentSession, apiKey, token, boardId })
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                toast(data.message, "success");
-                loadTrelloStatus();
-                // Limpar campos
-                document.getElementById('trelloKey').value = '';
-                document.getElementById('trelloToken').value = '';
-                document.getElementById('trelloBoardId').value = '';
-            } else {
-                toast(data.error, "error");
+                msg.textContent = "🔴 Trello não configurado para sua conta.";
             }
         }
 
@@ -253,7 +299,7 @@
             const res = await fetch(`/api/messages/${type}?sessionId=${currentSession}`);
             const data = await res.json();
             const list = document.getElementById('historyList');
-            list.innerHTML = data.data.length ? '' : '<div style="text-align:center; color: var(--text-secondary); margin-top: 40px;">Vazio</div>';
+            list.innerHTML = data.data.length ? '' : '<div style="text-align:center; color: var(--text-secondary); margin-top: 40px;">Histórico vazio</div>';
             data.data.forEach(msg => {
                 const item = document.createElement('div');
                 item.className = `msg-item ${type}`;
@@ -276,19 +322,19 @@
             });
         }
 
-        async function promptNewSession() {
-            const name = prompt("Nome da conta/empresa:");
-            if (name) {
-                await fetch('/api/status/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: name }) });
-                loadSessions();
-            }
-        }
+        // async function promptNewSession() { // Removed as per instruction
+        //     const name = prompt("Nome da conta/empresa:");
+        //     if (name) {
+        //         await fetch('/api/status/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: name }) });
+        //         loadSessions();
+        //     }
+        // }
 
-        async function logout(id) {
-            if (!confirm(`Deseja desconectar a sessão ${id}?`)) return;
-            await fetch('/api/status/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: id }) });
-            loadSessions();
-        }
+        // async function logout(id) { // Removed as per instruction
+        //     if (!confirm(`Deseja desconectar a sessão ${id}?`)) return;
+        //     await fetch('/api/status/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: id }) });
+        //     loadSessions();
+        // }
 
         function toast(msg, type) {
             const container = document.getElementById('toastContainer');
@@ -300,11 +346,8 @@
             setTimeout(() => t.remove(), 4000);
         }
 
-        // Init
-        loadSessions();
-        loadTrelloActions();
-        loadTrelloStatus();
-        setInterval(loadSessions, 7000);
+        // --- INICIALIZAÇÃO ---
+        checkAuth();
     </script>
 </body>
 

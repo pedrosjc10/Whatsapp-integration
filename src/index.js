@@ -2,8 +2,11 @@ require("dotenv").config();
 
 const express = require("express");
 const path = require("path");
+const mongoose = require("mongoose");
+const cookieParser = require("cookie-parser");
 const { initAllSessions } = require("./services/whatsapp");
-const { initTrello } = require("./services/trelloService");
+const { protect } = require("./middlewares/authMiddleware");
+// O Trello agora é dinâmico, não precisa de inicialização global fixa.
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,23 +14,46 @@ const PORT = process.env.PORT || 3000;
 // Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-// Servir arquivos estáticos (dashboard)
-app.use(express.static(path.join(__dirname, "public")));
+// 1. Primeiro as rotas públicas
+app.get("/login", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "login.html"));
+});
+app.use("/api/auth", require("./routes/auth"));
 
-// Rotas da API
-app.use("/api/status", require("./routes/status"));
-app.use("/api/messages", require("./routes/messages"));
-app.use("/api/trello", require("./routes/trello"));
+// 2. Proteger o resto dos arquivos estáticos (CSS, JS)
+app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
-// Rota raiz - serve o dashboard
-app.get("/", (req, res) => {
+// 3. Rotas Protegidas
+app.use("/api/status", protect, require("./routes/status"));
+app.use("/api/messages", protect, require("./routes/messages"));
+app.use("/api/trello", protect, require("./routes/trello"));
+
+// Rota raiz - agora protegida com unhas e dentes
+app.get("/", protect, (req, res) => {
     res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 // Iniciar servidor
-app.listen(PORT, async () => {
-    console.log(`
+async function startServer() {
+    // Conectar ao MongoDB primeiro
+    const MONGO_URI = process.env.MONGODB_URI;
+    if (!MONGO_URI) {
+        console.error("❌ ERRO: MONGODB_URI não configurado no .env");
+        process.exit(1);
+    }
+
+    try {
+        await mongoose.connect(MONGO_URI);
+        console.log("🍃 Conectado ao MongoDB Atlas!");
+    } catch (err) {
+        console.error("❌ Erro ao conectar ao MongoDB:", err.message);
+        process.exit(1);
+    }
+
+    app.listen(PORT, async () => {
+        console.log(`
 ╔══════════════════════════════════════════════════════╗
 ║       🟢 WhatsApp + Trello Integration API           ║
 ║                                                      ║
@@ -51,26 +77,25 @@ app.listen(PORT, async () => {
 ╚══════════════════════════════════════════════════════╝
   `);
 
-    // Iniciar integração Trello
-    await initTrello();
+        // Iniciar conexão com WhatsApp
+        console.log("🔄 Iniciando sessões do WhatsApp...\n");
+        await initAllSessions();
 
-    // Iniciar conexão com WhatsApp
-    console.log("🔄 Iniciando sessões do WhatsApp...\n");
-    await initAllSessions();
+        // --- SISTEMA KEEP-ALIVE PARA O RENDER ---
+        const RENDER_URL = process.env.RENDER_EXTERNAL_URL || "https://whatsapp-integration-a7t1.onrender.com";
+        if (RENDER_URL) {
+            console.log(`⏰ Sistema Keep-Alive ativado para: ${RENDER_URL}`);
+            // Pinga a cada 10 minutos (600.000 ms)
+            setInterval(async () => {
+                try {
+                    const response = await fetch(RENDER_URL);
+                    console.log(`🛰️ Keep-Alive Ping: status ${response.status}`);
+                } catch (err) {
+                    console.error("❌ Erro no Ping Keep-Alive:", err.message);
+                }
+            }, 600000);
+        }
+    });
+}
 
-    // --- SISTEMA KEEP-ALIVE PARA O RENDER ---
-    const RENDER_URL = process.env.RENDER_EXTERNAL_URL || "https://whatsapp-integration-a7t1.onrender.com";
-    if (RENDER_URL) {
-        console.log(`⏰ Sistema Keep-Alive ativado para: ${RENDER_URL}`);
-        // Pinga a cada 10 minutos (600.000 ms)
-        setInterval(async () => {
-            try {
-                const response = await fetch(RENDER_URL);
-                console.log(`🛰️ Keep-Alive Ping: status ${response.status}`);
-            } catch (err) {
-                console.error("❌ Erro no Ping Keep-Alive:", err.message);
-            }
-        }, 600000);
-    }
-});
-
+startServer();

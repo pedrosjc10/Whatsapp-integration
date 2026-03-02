@@ -10,6 +10,7 @@ const path = require("path");
 const fs = require("fs");
 const store = require("./store");
 const { processIncomingMessage } = require("./processor");
+const User = require("../../models/User");
 
 const logger = pino({ level: "silent" });
 
@@ -39,6 +40,22 @@ async function startWhatsApp(sessionId = "default") {
         generateHighQualityLinkPreview: true,
     });
 
+    // Carregar dados extras do banco (Trello e Filtros)
+    let trelloConfig = store.loadTrelloConfig(sessionId);
+    let filterKeywords = [];
+    let filterMediaTypes = [];
+
+    try {
+        const user = await User.findOne({ sessionId });
+        if (user) {
+            trelloConfig = user.trelloConfig;
+            filterKeywords = user.filterKeywords || [];
+            filterMediaTypes = user.filterMediaTypes || [];
+        }
+    } catch (e) {
+        console.error("Erro ao carregar dados do usuário no StartWhatsApp:", e.message);
+    }
+
     const instanceData = {
         id: sessionId,
         sock,
@@ -47,7 +64,9 @@ async function startWhatsApp(sessionId = "default") {
         number: null,
         sentMessages: [],
         receivedMessages: [],
-        trelloConfig: store.loadTrelloConfig(sessionId)
+        trelloConfig,
+        filterKeywords,
+        filterMediaTypes
     };
     instances.set(sessionId, instanceData);
 

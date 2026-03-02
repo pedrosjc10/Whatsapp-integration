@@ -5,7 +5,7 @@ const store = require("./store");
  * Processador de Mensagens do WhatsApp
  */
 async function processIncomingMessage(sessionId, sock, msg) {
-    const { instances, getFilters, startupTimestamp } = store;
+    const { instances, startupTimestamp } = store;
     const instanceData = instances.get(sessionId);
 
     const jid = msg.key.remoteJid;
@@ -30,15 +30,17 @@ async function processIncomingMessage(sessionId, sock, msg) {
     else if (msg.message?.stickerMessage) { content = "[Sticker]"; mediaType = "sticker"; }
     else { content = "[Mídia/Outro]"; mediaType = "other"; }
 
-    // Lógica de Filtro
-    const { keywords, mediaTypes } = getFilters();
+    // Lógica de Filtro (Pega da instância ou usa padrão vazio)
+    const keywords = instanceData?.filterKeywords || [];
+    const mediaTypes = instanceData?.filterMediaTypes || [];
+
     const isMediaOther = content === "[Mídia/Outro]";
 
     if (!isMediaOther) {
         let passFilter = true;
         if (keywords.length > 0 || mediaTypes.length > 0) {
-            const hasKeyword = keywords.length > 0 && keywords.some(k => content.toLowerCase().includes(k));
-            const hasMediaType = mediaTypes.length > 0 && mediaTypes.includes(mediaType);
+            const hasKeyword = keywords.length > 0 && keywords.some(k => content.toLowerCase().includes(k.toLowerCase()));
+            const hasMediaType = mediaTypes.length > 0 && mediaTypes.includes(mediaType.toLowerCase());
             passFilter = hasKeyword || hasMediaType;
         }
 
