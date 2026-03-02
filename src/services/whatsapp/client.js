@@ -46,7 +46,8 @@ async function startWhatsApp(sessionId = "default") {
         status: "disconnected",
         number: null,
         sentMessages: [],
-        receivedMessages: []
+        receivedMessages: [],
+        trelloConfig: store.loadTrelloConfig(sessionId)
     };
     instances.set(sessionId, instanceData);
 

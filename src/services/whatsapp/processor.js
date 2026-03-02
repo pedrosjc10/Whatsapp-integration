@@ -56,7 +56,9 @@ async function processIncomingMessage(sessionId, sock, msg) {
 
             console.log(`\n${fromMe ? '📤' : '📥'} [${sessionId}] Filtro Passou: ${content.substring(0, 30)}...`);
             for (const term of searchTerms) {
-                trello.processConfirmation(term, content, fromMe ? "sent" : "received").catch(() => { });
+                if (instanceData?.trelloConfig) {
+                    trello.processConfirmation(term, content, fromMe ? "sent" : "received", instanceData.trelloConfig).catch(() => { });
+                }
             }
         }
     }
