@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const whatsapp = require("../whatsapp");
+const whatsapp = require("../services/whatsapp");
 
 /**
  * GET /api/status/all

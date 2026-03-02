@@ -2,8 +2,8 @@ require("dotenv").config();
 
 const express = require("express");
 const path = require("path");
-const { initAllSessions } = require("./whatsapp");
-const { initTrello } = require("./trello");
+const { initAllSessions } = require("./services/whatsapp");
+const { initTrello } = require("./services/trelloService");
 
 const app = express();
 const PORT = process.env.PORT || 3000;

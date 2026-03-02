@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const trello = require("../trello");
+const trello = require("../services/trelloService");
 
 /**
  * GET /api/trello/status

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const whatsapp = require("../whatsapp");
-const trello = require("../trello");
+const whatsapp = require("../services/whatsapp");
+const trello = require("../services/trelloService");
 
 /**
  * POST /api/messages/send
