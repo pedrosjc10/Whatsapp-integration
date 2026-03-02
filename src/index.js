@@ -57,4 +57,20 @@ app.listen(PORT, async () => {
     // Iniciar conexão com WhatsApp
     console.log("🔄 Iniciando sessões do WhatsApp...\n");
     await initAllSessions();
+
+    // --- SISTEMA KEEP-ALIVE PARA O RENDER ---
+    const RENDER_URL = process.env.RENDER_EXTERNAL_URL || "https://whatsapp-integration-a7t1.onrender.com";
+    if (RENDER_URL) {
+        console.log(`⏰ Sistema Keep-Alive ativado para: ${RENDER_URL}`);
+        // Pinga a cada 10 minutos (600.000 ms)
+        setInterval(async () => {
+            try {
+                const response = await fetch(RENDER_URL);
+                console.log(`🛰️ Keep-Alive Ping: status ${response.status}`);
+            } catch (err) {
+                console.error("❌ Erro no Ping Keep-Alive:", err.message);
+            }
+        }, 600000);
+    }
 });
+
