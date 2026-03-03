@@ -41,7 +41,7 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     }
-});
+}, { bufferCommands: false });
 
 // Encriptar senha antes de salvar
 userSchema.pre("save", async function (next) {
