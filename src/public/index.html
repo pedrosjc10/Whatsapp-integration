@@ -235,6 +235,7 @@
             loadTrelloStatus();
             loadTrelloActions();
             await loadDetailedStats(); // Isso também carrega os checkboxes de lista
+
             setInterval(loadTrelloActions, 10000);
             setInterval(loadDetailedStats, 60000);
             setInterval(loadMetrics, 60000);

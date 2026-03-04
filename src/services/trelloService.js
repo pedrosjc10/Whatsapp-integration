@@ -141,6 +141,139 @@ async function processConfirmation(number, message, status, config) {
     return { success: true, count: confirmed.length, confirmedCards: confirmed };
 }
 
+/**
+ * Verifica todos os cards do board e aplica etiqueta "Atrasado" nos que estão vencidos
+ */
+async function checkAndLabelOverdueCards(config) {
+    if (!isConfigValid(config)) return { checked: 0, labeled: 0 };
+
+    try {
+        const now = new Date();
+
+        // Buscar cards, listas e etiquetas em paralelo para ser rápido
+        const [cards, boardLabels, lists] = await Promise.all([
+            trelloFetch(`/boards/${config.boardId}/cards?fields=name,due,dueComplete,idLabels,idList`, config),
+            trelloFetch(`/boards/${config.boardId}/labels?fields=name,color`, config),
+            trelloFetch(`/boards/${config.boardId}/lists?fields=name`, config)
+        ]);
+
+        // Identificar listas de conclusão (para não marcar como atrasado se estiver lá)
+        const doneListIds = lists
+            .filter(l => l.name.toLowerCase().includes('conclu') || l.name.toLowerCase().includes('feito') || l.name.toLowerCase().includes('entregue'))
+            .map(l => l.id);
+
+        // Procurar ou criar a etiqueta "Atrasado"
+        let overdueLabel = boardLabels.find(l => l.name && l.name.toLowerCase().includes('atrasado'));
+        if (!overdueLabel) overdueLabel = boardLabels.find(l => l.color === 'red' && (!l.name || l.name === ''));
+
+        if (!overdueLabel) {
+            overdueLabel = await trelloFetch('/labels', config, 'POST', { name: 'Atrasado', color: 'red', idBoard: config.boardId });
+            console.log(`🏷️ Etiqueta "Atrasado" criada.`);
+        }
+
+        const overdueLabelId = overdueLabel.id;
+        let labeledCount = 0;
+
+        // Filtrar cards que REALMENTE estão atrasados
+        const overdueCards = cards.filter(card => {
+            if (!card.due) return false;
+            if (card.dueComplete) return false; // Checkbox marcado
+            if (doneListIds.includes(card.idList)) return false; // Está na coluna de concluídos
+            return new Date(card.due) < now;
+        });
+
+        for (const card of overdueCards) {
+            if (card.idLabels && card.idLabels.includes(overdueLabelId)) continue;
+
+            try {
+                await trelloFetch(`/cards/${card.id}/idLabels`, config, 'POST', { value: overdueLabelId });
+                labeledCount++;
+                console.log(`🟥 Etiquetado como Atrasado: ${card.name}`);
+            } catch (e) {
+                console.error(`⚠️ Erro no card ${card.name}:`, e.message);
+            }
+        }
+
+        return { checked: cards.length, overdue: overdueCards.length, labeled: labeledCount };
+    } catch (e) {
+        console.error('❌ Erro na verificação de atrasos:', e.message);
+        return { error: e.message };
+    }
+}
+
+/**
+ * Arquiva cards concluídos que passaram do prazo há mais de X dias
+ * @param {Object} config - Configuração do Trello
+ * @param {number} daysThreshold - Dias após a due date para arquivar (padrão: 7)
+ */
+async function archiveOldCompletedCards(config, daysThreshold = 7) {
+    if (!isConfigValid(config)) return { checked: 0, archived: 0 };
+
+    try {
+        const now = new Date();
+        const thresholdMs = daysThreshold * 24 * 60 * 60 * 1000;
+
+        const cards = await trelloFetch(
+            `/boards/${config.boardId}/cards?fields=name,due,dueComplete`,
+            config
+        );
+
+        // Filtrar: concluídos + due date ultrapassou o threshold
+        const toArchive = cards.filter(card => {
+            if (!card.dueComplete) return false;
+            if (!card.due) return false;
+            const dueDate = new Date(card.due);
+            return (now - dueDate) > thresholdMs;
+        });
+
+        let archivedCount = 0;
+        for (const card of toArchive) {
+            try {
+                await trelloFetch(`/cards/${card.id}`, config, 'PUT', { closed: true });
+                archivedCount++;
+                console.log(`📦 Arquivado: "${card.name}" (concluído há +${daysThreshold} dias)`);
+            } catch (e) {
+                console.error(`⚠️ Erro ao arquivar "${card.name}":`, e.message);
+            }
+        }
+
+        if (archivedCount > 0) {
+            console.log(`🗂️ Arquivamento: ${archivedCount} cards arquivados de ${toArchive.length} elegíveis.`);
+        }
+        return { checked: cards.length, eligible: toArchive.length, archived: archivedCount };
+
+    } catch (e) {
+        console.error('❌ Erro no arquivamento:', e.message);
+        return { checked: 0, archived: 0, error: e.message };
+    }
+}
+
+/**
+ * Inicia a verificação periódica de cards atrasados + arquivamento
+ * Roda a cada 5 minutos
+ */
+function startOverdueChecker(config, intervalMinutes = 5) {
+    if (!isConfigValid(config)) {
+        console.log('⚠️ Overdue checker não iniciado: config Trello inválida.');
+        return;
+    }
+
+    async function runChecks() {
+        await checkAndLabelOverdueCards(config);
+        await archiveOldCompletedCards(config, 7); // Arquivar após 7 dias
+    }
+
+    // Rodar imediatamente na primeira vez
+    console.log('⏰ Iniciando verificação automática de atrasos + arquivamento...');
+    runChecks();
+
+    // Depois rodar periodicamente
+    const intervalMs = intervalMinutes * 60 * 1000;
+    setInterval(runChecks, intervalMs);
+
+    console.log(`✅ Checker ativo: atrasos + arquivamento a cada ${intervalMinutes} min.`);
+}
+
 module.exports = {
     isConfigValid,
     processConfirmation,
@@ -241,5 +374,8 @@ module.exports = {
     getTargetListId,
     getBoardInfo: (config) => trelloFetch(`/boards/${config.boardId}`, config),
     getBoardLists: (config) => trelloFetch(`/boards/${config.boardId}/lists`, config),
-    getActions: () => trelloActions
+    getActions: () => trelloActions,
+    checkAndLabelOverdueCards,
+    archiveOldCompletedCards,
+    startOverdueChecker
 };

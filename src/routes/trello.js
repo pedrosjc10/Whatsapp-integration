@@ -172,4 +172,29 @@ router.get("/actions", (req, res) => {
     res.json({ success: true, data: trello.getActions() });
 });
 
+/**
+ * POST /api/trello/check-overdue
+ * Força verificação manual de cards atrasados
+ */
+router.post("/check-overdue", async (req, res) => {
+    try {
+        const config = getTrelloConfig(req);
+        if (!trello.isConfigValid(config)) {
+            return res.json({ success: false, error: "Trello não configurado" });
+        }
+
+        // Rodar as duas automações
+        const overdueResult = await trello.checkAndLabelOverdueCards(config);
+        const archiveResult = await trello.archiveOldCompletedCards(config, 7);
+
+        res.json({
+            success: true,
+            overdue: overdueResult,
+            archive: archiveResult
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;

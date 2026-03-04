@@ -59,7 +59,35 @@ async function startServer() {
     app.listen(PORT, "0.0.0.0", () => {
         console.log(`🚀 Servidor rodando em: http://localhost:${PORT}`);
 
-        // Keep-Alive para Render
+        // Robô Fantasma: Automação em segundo plano (roda sozinho)
+        // Usa as chaves do Banco de Dados (da conta logada)
+        const trello = require("./services/trelloService");
+        const User = require("./models/User");
+
+        const runRobot = async () => {
+            try {
+                // Pega os usuários no banco que configuraram o Trello
+                const users = await User.find({ "trelloConfig.apiKey": { $exists: true } });
+
+                for (const user of users) {
+                    const config = user.trelloConfig;
+                    if (trello.isConfigValid(config)) {
+                        console.log(`🤖 [FANTASMA] Organizando quadro: ${user.email} -> ${config.boardId}`);
+                        await trello.checkAndLabelOverdueCards(config);
+                        await trello.archiveOldCompletedCards(config, 7);
+                    }
+                }
+            } catch (err) {
+                console.error("❌ Erro no robô fantasma:", err.message);
+            }
+        };
+
+        // Roda ao iniciar e depois a cada 5 minutos
+        setTimeout(runRobot, 5000);
+        setInterval(runRobot, 300000);
+        console.log("✅ Robô Fantasma ativado no Servidor (BD Mode).");
+
+        // Keep-Alive para Render (opcional)
         const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
         if (RENDER_URL) {
             console.log(`🛰️ Keep-Alive ativo para: ${RENDER_URL}`);
