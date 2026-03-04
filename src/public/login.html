@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SaaS WhatsApp Trello | Login</title>
+    <title>SaaS WhatsApp Trello | Login Premium</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <style>
@@ -16,26 +16,27 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: radial-gradient(circle at top right, #1a2236, #0a101d);
+            background: linear-gradient(135deg, #f8f9fb 0%, #fffbf2 100%);
             min-height: 100vh;
+            margin: 0;
+            padding: 20px;
         }
 
         .login-card {
             width: 100%;
-            max-width: 400px;
-            background: rgba(26, 34, 54, 0.8);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-            animation: fadeIn 0.6s ease-out;
+            max-width: 440px;
+            background: #ffffff;
+            border-radius: 32px;
+            padding: 48px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.05);
+            animation: fadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(0, 0, 0, 0.03);
         }
 
         @keyframes fadeIn {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(30px);
             }
 
             to {
@@ -46,81 +47,135 @@
 
         .login-header {
             text-align: center;
-            margin-bottom: 32px;
+            margin-bottom: 40px;
         }
 
         .logo-box {
-            margin: 0 auto 20px;
+            margin: 0 auto 24px;
             width: 64px;
             height: 64px;
+            background: var(--accent-dark);
+            color: #fff;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-size: 32px;
+            font-weight: 800;
         }
 
         .tab-group {
             display: flex;
-            background: var(--bg-secondary);
-            padding: 4px;
-            border-radius: 12px;
-            margin-bottom: 24px;
+            background: #f8f9fb;
+            padding: 6px;
+            border-radius: 16px;
+            margin-bottom: 32px;
         }
 
         .tab-btn {
             flex: 1;
-            padding: 8px;
+            padding: 12px;
             border: none;
             background: transparent;
             color: var(--text-secondary);
-            font-weight: 600;
-            font-size: 13px;
+            font-weight: 700;
+            font-size: 14px;
             cursor: pointer;
-            border-radius: 8px;
-            transition: 0.2s;
+            border-radius: 12px;
+            transition: var(--transition);
         }
 
         .tab-btn.active {
-            background: var(--bg-card);
-            color: #fff;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            background: #fff;
+            color: var(--accent-dark);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-group {
+            margin-bottom: 24px;
         }
 
         .form-group label {
-            font-weight: 600;
-            color: #fff;
-            margin-bottom: 8px;
+            font-weight: 700;
+            color: var(--accent-dark);
+            margin-bottom: 10px;
             display: block;
             font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         input {
-            background: rgba(10, 15, 28, 0.6);
-            height: 48px;
-            transition: 0.3s;
-            margin-bottom: 4px;
+            background: #f8f9fb;
+            height: 54px;
+            border: 1px solid #eef0f5;
+            padding: 0 18px;
+            border-radius: 14px;
+            font-size: 15px;
+            width: 100%;
+            box-sizing: border-box;
+            font-family: inherit;
+            transition: var(--transition);
+        }
+
+        input:focus {
+            border-color: var(--accent-yellow);
+            background: #fff;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(255, 206, 92, 0.1);
         }
 
         .btn-primary {
-            height: 48px;
-            font-size: 15px;
-            margin-top: 24px;
+            width: 100%;
+            height: 56px;
+            background: var(--accent-dark);
+            color: #fff;
+            border-radius: 16px;
+            border: none;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 12px;
+        }
+
+        .btn-primary:hover {
+            background: #000;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
         }
 
         .trello-fields {
             display: none;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px dashed var(--border);
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: 1px dashed #eef0f5;
+            animation: slideDown 0.4s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .trello-badge {
             display: inline-block;
-            background: var(--accent-trello);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            margin-bottom: 12px;
+            background: #fff9e6;
+            color: #d4a017;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            margin-bottom: 16px;
             text-transform: uppercase;
             font-weight: 800;
+            letter-spacing: 1px;
         }
     </style>
 </head>
@@ -129,38 +184,45 @@
     <div class="login-card">
         <div class="login-header">
             <div class="logo-box">💬</div>
-            <h1 style="font-family: 'Outfit'; font-size: 24px; margin-bottom: 8px;">WhatsApp SaaS</h1>
-            <p style="color: var(--text-secondary); font-size: 14px;">Acesse sua dashboard</p>
+            <h1
+                style="font-family: 'Outfit'; font-size: 28px; font-weight: 800; color: var(--accent-dark); margin-bottom: 8px;">
+                Crextio.io</h1>
+            <p style="color: var(--text-secondary); font-size: 15px; font-weight: 500;">Simplifique sua gestão Trello +
+                WhatsApp</p>
         </div>
 
         <div class="tab-group" id="authTabs">
-            <button class="tab-btn active" data-tab="login">Login</button>
+            <button class="tab-btn active" data-tab="login">Entrar</button>
             <button class="tab-btn" data-tab="register">Criar Conta</button>
         </div>
 
         <div id="authForms">
             <div class="form-group">
-                <label>E-mail</label>
-                <input type="email" id="email" placeholder="seu@email.com">
+                <label>E-mail Corporativo</label>
+                <input type="email" id="email" placeholder="nome@empresa.com">
             </div>
 
             <div class="form-group">
-                <label>Senha</label>
+                <label>Sua Senha</label>
                 <input type="password" id="password" placeholder="••••••••">
             </div>
 
-            <!-- Apenas Board ID no Cadastro -->
             <div class="trello-fields" id="trelloFields">
-                <div class="trello-badge">Configuração do Trello</div>
+                <div class="trello-badge">Configuração Inicial</div>
                 <div class="form-group">
-                    <label>ID do seu Quadro (Board ID)</label>
-                    <input type="text" id="trelloBoardId" placeholder="Ex: ABC123XY">
+                    <label>ID do Quadro Trello (Board ID)</label>
+                    <input type="text" id="trelloBoardId" placeholder="Ex: T3vbXYKE">
                 </div>
             </div>
 
-            <button class="btn btn-primary" id="mainBtn" style="width: 100%;" onclick="handleSubmit()">
-                Entrar Agora
+            <button class="btn-primary" id="mainBtn" onclick="handleSubmit()">
+                Acessar Plataforma
             </button>
+
+            <p
+                style="text-align: center; margin-top: 24px; font-size: 13px; color: var(--text-secondary); font-weight: 500;">
+                Proteção SSL de 256 bits ativada.
+            </p>
         </div>
     </div>
 
@@ -169,7 +231,6 @@
     <script>
         let mode = 'login';
 
-        // Alternar abas
         document.getElementById('authTabs').onclick = (e) => {
             if (!e.target.dataset.tab) return;
             mode = e.target.dataset.tab;
@@ -185,14 +246,13 @@
                 mainBtn.textContent = 'Criar minha Conta';
             } else {
                 trelloFields.style.display = 'none';
-                mainBtn.textContent = 'Entrar Agora';
+                mainBtn.textContent = 'Acessar Plataforma';
             }
         };
 
         async function handleSubmit() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-
             const body = { email, password };
 
             if (mode === 'register') {
@@ -200,9 +260,9 @@
                 if (!body.trelloBoardId) return toast("Informe o Board ID do Trello", "error");
             }
 
-            if (!email || !password) return toast("Preencha e-mail e senha", "error");
+            if (!email || !password) return toast("Preencha todos os campos", "error");
 
-            toast(`${mode === 'login' ? 'Autenticando' : 'Criando sua conta'}...`, "info");
+            toast(`${mode === 'login' ? 'Autenticando' : 'Criando conta'}...`, "info");
 
             const res = await fetch(`/api/auth/${mode}`, {
                 method: 'POST',
@@ -215,11 +275,11 @@
             if (data.success) {
                 toast(data.message, "success");
                 if (mode === 'login') {
-                    setTimeout(() => window.location.href = '/', 1000);
+                    setTimeout(() => window.location.href = '/', 800);
                 } else {
                     document.querySelector('[data-tab="login"]').click();
                     document.getElementById('email').value = email;
-                    toast("Agora faça o login!", "success");
+                    toast("Conta criada! Agora faça o login.", "success");
                 }
             } else {
                 toast(data.error || "Erro na operação", "error");
@@ -230,7 +290,7 @@
             const container = document.getElementById('toastContainer');
             const t = document.createElement('div');
             t.className = 'toast';
-            t.style.borderLeft = `4px solid ${type === 'success' ? '#25d366' : (type === 'info' ? '#3b82f6' : '#ef4444')}`;
+            t.style.marginTop = '10px';
             t.textContent = msg;
             container.appendChild(t);
             setTimeout(() => t.remove(), 4000);

@@ -4,118 +4,188 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Multi-SaaS + Trello</title>
+    <title>SaaS WhatsApp Trello | Premium Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
     <div class="app">
+        <!-- HEADER: Logo + Nav -->
         <header>
             <div class="logo-area">
                 <div class="logo-box">💬</div>
-                <div>
-                    <h1 style="font-family: 'Outfit'; font-size: 24px;">WhatsApp Trello SaaS</h1>
-                    <p style="font-size: 12px; color: var(--text-secondary);">Cada sessão com seu próprio quadro</p>
-                </div>
+                <h1 style="font-family: 'Outfit'; font-size: 20px; font-weight: 800;">Crextio.io</h1>
             </div>
-            <div id="globalTrelloStatus" class="status-pill connected"
-                style="background: var(--accent-trello); color: #fff;">
-                SaaS Ativo 🚀
+            <nav id="topNav">
+                <a href="#" class="nav-item active">Dashboard</a>
+                <a href="#" class="nav-item">Contas</a>
+                <a href="#" class="nav-item">Equipe</a>
+                <a href="#" class="nav-item" onclick="logout()">Sair</a>
+            </nav>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div class="logo-box" style="background: #f0f2f5; color: #000; font-size: 16px;">👤</div>
             </div>
         </header>
 
-        <!-- Grade de Sessões -->
-        <div class="sessions-grid" id="sessionsGrid">
-            <!-- Sessions will be loaded here -->
-            <div class="session-card add-session-card" onclick="promptNewSession()">
-                <span style="font-size: 32px;">+</span>
-                <span>Nova Sessão</span>
+        <!-- WELCOME + KPIs -->
+        <div class="welcome-section">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+                <div>
+                    <h2 class="welcome-title">Bem-vindo, <span id="userName">Nixtio</span></h2>
+                    <p style="color: var(--text-secondary); font-size: 14px; font-weight: 500;">Gerencie sua automação
+                        WhatsApp + Trello em tempo real.</p>
+                </div>
+
+                <div
+                    style="background: rgba(255,255,255,0.05); padding: 12px 16px; border-radius: 12px; min-width: 280px;">
+                    <label
+                        style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 8px; color: var(--text-secondary);">
+                        👥 Filtrar por Pessoa
+                    </label>
+                    <div id="listCheckboxes"
+                        style="max-height: 120px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="font-size: 12px; opacity: 0.5;">Carregando listas...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="kpi-row" style="margin-top: 24px;">
+                <div class="kpi-item">
+                    <div class="kpi-icon">📅</div>
+                    <div class="kpi-data">
+                        <span class="kpi-label">Pendentes</span>
+                        <span class="kpi-value" id="stats-pending">0</span>
+                    </div>
+                </div>
+                <div class="kpi-item">
+                    <div class="kpi-icon" style="background: #fffcf2;">🚨</div>
+                    <div class="kpi-data">
+                        <span class="kpi-label">Atrasados</span>
+                        <span class="kpi-value" id="stats-overdue" style="color: #ff4d4d;">0</span>
+                    </div>
+                </div>
+                <div class="kpi-item">
+                    <div class="kpi-icon" style="background: #f2fff6;">✅</div>
+                    <div class="kpi-data">
+                        <span class="kpi-label">Projetos</span>
+                        <span class="kpi-value" id="stats-completed">0</span>
+                    </div>
+                </div>
             </div>
         </div>
 
+        <!-- TEAM CHARTS SECTION -->
+        <!-- TEAM CHARTS SECTION -->
+        <div class="panel" style="margin-top: 24px; padding: 32px; display: block;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h3 style="font-family: 'Outfit'; font-size: 20px;">📊 Status por Pessoa (Equipe)</h3>
+                <button class="btn-primary" style="width: auto; padding: 10px 20px; font-size: 12px;"
+                    onclick="loadDetailedStats()">🔄 Atualizar</button>
+            </div>
+            <div id="teamChartsGrid" class="team-charts-grid">
+                <!-- Gráficos individuais serão inseridos aqui -->
+                <div style="text-align: center; opacity: 0.5; padding: 40px; grid-column: 1 / -1;">
+                    Carregando dados da equipe...
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN LAYOUT: 3 COLUMNS -->
         <div class="main-layout">
-            <!-- Painel de Controle (WhatsApp e Trello Config) -->
-            <div class="panel">
-                <div class="panel-title"><span>⚙️</span> Sessão: <span id="currentSessionName">default</span></div>
 
-                <!-- Status do Trello -->
-                <div class="trello-config-box" id="trelloConfigBox"
-                    style="border: none; background: rgba(0,0,0,0.1); margin-bottom: 20px;">
-                    <p id="trelloStatusMsg" style="font-size: 13px; text-align: center; color: #fff;">
-                        ⌛ Carregando status do Trello...
-                    </p>
+            <!-- COL 1: Sessões e Status -->
+            <div>
+                <span class="column-label">Suas Sessões</span>
+                <div class="sessions-list" id="sessionsGrid">
+                    <!-- Session cards will go here -->
+                </div>
+                <button class="btn-primary"
+                    style="margin-top: 24px; background: #fff; color: #000; border: 1px solid #eee;"
+                    onclick="promptNewSession()">
+                    + Nova Conexão
+                </button>
+            </div>
+
+            <!-- COL 2: Painel Principal (Filtros e Envios) -->
+            <div>
+                <span class="column-label">Controle Central</span>
+                <div class="panel">
+                    <div class="panel-title">🎯 Filtros Inteligentes</div>
+                    <div class="form-group">
+                        <label>Palavras-Chave (Automático)</label>
+                        <input type="text" id="filterKeywords" placeholder="Ex: ok, feito, finalizar">
+                    </div>
+                    <div class="form-group">
+                        <label>Tipos de Mídia Aceitos</label>
+                        <input type="text" id="filterMediaTypes" placeholder="Ex: image, video, document">
+                    </div>
+                    <button class="btn-primary" onclick="saveFilters()">💾 Salvar Preferências</button>
                 </div>
 
-                <!-- Configuração de Filtros SaaS -->
-                <div
-                    style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 24px;">
+                <div class="panel" style="background: var(--accent-yellow); border: none;">
+                    <div class="panel-title">📨 Enviar Agora</div>
+                    <div class="form-group">
+                        <label style="color: #000;">Número do Destinatário</label>
+                        <input type="text" id="targetNumber" placeholder="5512999998888"
+                            style="background: #fff; border: none;">
+                    </div>
+                    <div class="form-group">
+                        <label style="color: #000;">Mensagem / Comentário</label>
+                        <textarea id="messageText" placeholder="O que deseja enviar?"
+                            style="background: #fff; border: none; min-height: 100px; resize: none;"></textarea>
+                    </div>
+                    <button class="btn-primary" style="background: #121212;" onclick="sendMessage()">Enviar e
+                        Confirmar</button>
+                </div>
+            </div>
+
+            <!-- COL 3: Histórico / Trello Tasks -->
+            <div id="rightCol">
+                <span class="column-label">Onboarding Task</span>
+                <div class="panel"
+                    style="background: #121212; color: #fff; border: none; min-height: 400px; padding: 32px;">
                     <div
-                        style="font-size: 12px; font-weight: 700; color: var(--accent-blue); margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px;">
-                        🎯 Filtros de Automação
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
+                        <h3 style="font-family: 'Outfit'; font-size: 20px;">Atividades</h3>
+                        <span style="font-size: 24px; font-weight: 800; opacity: 0.5;" id="actionsCount">0</span>
                     </div>
-                    <div class="form-group" style="margin-bottom: 12px;">
-                        <label style="font-size: 11px;">Palavras-Chave (ex: ok, feito)</label>
-                        <input type="text" id="filterKeywords" placeholder="Vazio = Todas"
-                            style="height: 38px; font-size: 13px;">
+
+                    <div id="trelloActions">
+                        <div style="text-align:center; opacity: 0.5; margin-top: 60px; font-size: 13px;">Buscando feeds
+                            em tempo real...</div>
                     </div>
-                    <div class="form-group" style="margin-bottom: 15px;">
-                        <label style="font-size: 11px;">Mídias (ex: image, video)</label>
-                        <input type="text" id="filterMediaTypes" placeholder="Tipos de arquivo"
-                            style="height: 38px; font-size: 13px;">
-                    </div>
-                    <button class="btn btn-primary" style="width: 100%; height: 38px; font-size: 13px;"
-                        onclick="saveFilters()">
-                        💾 Salvar Filtros
-                    </button>
                 </div>
 
-                <!-- Envio de Mensagem -->
-                <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
-                    <div class="panel-title"><span>📤</span> Enviar Mensagem</div>
-                    <div class="form-group">
-                        <label>Número do Cliente</label>
-                        <input type="text" id="targetNumber" placeholder="5512999998888">
-                    </div>
-                    <div class="form-group">
-                        <label>Mensagem</label>
-                        <textarea id="messageText" rows="4" placeholder="Digite aqui..."></textarea>
-                    </div>
-                    <button class="btn btn-primary" style="width: 100%;" onclick="sendMessage()">
-                        <span>📨</span> Enviar e Confirmar no Trello
-                    </button>
-                </div>
-            </div>
-
-            <!-- Chat History -->
-            <div class="panel">
-                <div class="panel-title" style="justify-content: space-between;">
-                    <span>💬 Histórico</span>
-                    <div style="display:flex; gap:8px;">
-                        <button class="status-pill connected" style="cursor:pointer;"
-                            onclick="loadHistory('sent')">Enviadas</button>
-                        <button class="status-pill awaiting_qr" style="cursor:pointer;"
-                            onclick="loadHistory('received')">Recebidas</button>
-                    </div>
-                </div>
-                <div class="msg-list" id="historyList">
-                    <div style="text-align:center; color: var(--text-secondary); margin-top: 40px;">Selecione uma sessão
+                <div class="panel" style="margin-top: 24px;">
+                    <div class="panel-title">⚙️ Conexão Trello</div>
+                    <div id="trelloConfigBox" style="font-size: 13px; color: var(--text-secondary);">
+                        <p id="trelloStatusMsg">⌛ Carregando...</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Trello Actions -->
-            <div class="panel">
-                <div class="panel-title"><span>⚡</span> Log de Automação</div>
-                <div id="trelloActions">
-                    <div style="text-align:center; color: var(--text-secondary); margin-top: 40px;">Buscando ações...
-                    </div>
-                </div>
+        </div>
+    </div>
+
+    <div id="qrModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeQRModal()">&times;</span>
+            <h3 style="margin-bottom: 20px;">Conectar WhatsApp</h3>
+            <p style="font-size: 14px; margin-bottom: 20px; color: var(--text-secondary);">Escaneie o QR Code abaixo com
+                o seu celular para conectar.</p>
+            <div id="qrContainer"
+                style="text-align: center; background: #fff; padding: 20px; border-radius: 12px; display: inline-block;">
+                <p id="qrLoading">Gerando QR Code...</p>
+                <img id="qrImage" src="" style="display: none; width: 100%; max-width: 250px;">
             </div>
+            <p id="qrStatus" style="margin-top: 20px; font-weight: 600; font-size: 14px;"></p>
         </div>
     </div>
 
@@ -126,28 +196,18 @@
         let instances = [];
         let userData = null;
 
-        /**
-         * Verifica o login e pega os dados do usuário
-         */
         async function checkAuth() {
             try {
                 const res = await fetch('/api/auth/me');
+                if (!res.ok) throw new Error();
                 const data = await res.json();
-
-                if (!data.success) {
-                    window.location.href = '/login';
-                    return;
-                }
-
                 userData = data.user;
                 currentSession = userData.sessionId;
-                document.getElementById('currentSessionName').textContent = userData.email;
+                document.getElementById('userName').textContent = userData.email.split('@')[0];
 
-                // Preencher filtros existentes
                 if (userData.filterKeywords) document.getElementById('filterKeywords').value = userData.filterKeywords.join(', ');
                 if (userData.filterMediaTypes) document.getElementById('filterMediaTypes').value = userData.filterMediaTypes.join(', ');
 
-                // Inicializar dashboard com os dados do usuário
                 await initDashboard();
             } catch (err) {
                 window.location.href = '/login';
@@ -157,196 +217,400 @@
         async function saveFilters() {
             const keywords = document.getElementById('filterKeywords').value;
             const mediaTypes = document.getElementById('filterMediaTypes').value;
-
             toast("Salvando filtros...", "info");
-
             const res = await fetch('/api/auth/filters', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ keywords, mediaTypes, sessionId: currentSession })
             });
-
             const data = await res.json();
-            if (data.success) {
-                toast("Filtros atualizados!", "success");
-            } else {
-                toast("Erro ao salvar filtros", "error");
-            }
+            if (data.success) toast("Filtros atualizados!", "success");
+            else toast("Erro ao salvar filtros", "error");
         }
 
         async function initDashboard() {
-            // Garantir que a sessão dele exista no servidor (caso seja novo)
-            await fetch('/api/status/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionId: currentSession })
-            });
-
+            await fetch('/api/status/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: currentSession }) });
             loadSessions();
-            loadTrelloActions();
+            loadHistory('sent');
             loadTrelloStatus();
-            setInterval(loadSessions, 7000);
+            loadTrelloActions();
+            await loadDetailedStats(); // Isso também carrega os checkboxes de lista
+            setInterval(loadTrelloActions, 10000);
+            setInterval(loadDetailedStats, 60000);
+            setInterval(loadMetrics, 60000);
+        }
+
+        function getSelectedListIds() {
+            const checkboxes = document.querySelectorAll('.list-filter-cb:checked');
+            return Array.from(checkboxes).map(cb => cb.value).join(',');
+        }
+
+        function renderListCheckboxes(allLists) {
+            const container = document.getElementById('listCheckboxes');
+            // Salvar quais estão marcados antes de re-renderizar
+            const prevChecked = new Set(
+                Array.from(document.querySelectorAll('.list-filter-cb:checked')).map(cb => cb.value)
+            );
+            const isFirstLoad = document.querySelectorAll('.list-filter-cb').length === 0;
+
+            container.innerHTML = '';
+
+            allLists.forEach((list) => {
+                const lbl = document.createElement('label');
+                lbl.style.display = 'flex';
+                lbl.style.alignItems = 'center';
+                lbl.style.gap = '5px';
+                lbl.style.fontSize = '12px';
+                lbl.style.cursor = 'pointer';
+                lbl.style.background = 'rgba(255,255,255,0.08)';
+                lbl.style.padding = '4px 10px';
+                lbl.style.borderRadius = '8px';
+                lbl.style.whiteSpace = 'nowrap';
+
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.value = list.id;
+                cb.className = 'list-filter-cb';
+
+                // Na primeira carga, marcar todos. Depois, manter o estado anterior.
+                if (isFirstLoad) {
+                    cb.checked = true;
+                } else {
+                    cb.checked = prevChecked.has(list.id);
+                }
+
+                cb.onchange = () => {
+                    loadMetrics();
+                    loadDetailedStats();
+                };
+
+                lbl.appendChild(cb);
+                lbl.appendChild(document.createTextNode(list.name));
+                container.appendChild(lbl);
+            });
+        }
+
+        let teamCharts = [];
+        async function loadDetailedStats() {
+            try {
+                const listIds = getSelectedListIds();
+                const url = `/api/trello/detailed-stats?sessionId=${currentSession}${listIds ? '&listIds=' + listIds : ''}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                const grid = document.getElementById('teamChartsGrid');
+                if (!data.success || !data.data || !data.data.data || data.data.data.length === 0) {
+                    grid.innerHTML = '<p style="text-align: center; opacity: 0.5; padding: 40px; grid-column: 1 / -1;">Nenhum dado encontrado ou você não configurou o Trello corretamente.</p>';
+                    return;
+                }
+
+                // Atualizar checkboxes de listas (se retornou allLists)
+                if (data.data.allLists) {
+                    renderListCheckboxes(data.data.allLists);
+                }
+
+                // Destruir gráficos antigos
+                teamCharts.forEach(c => c.destroy());
+                teamCharts = [];
+                grid.innerHTML = '';
+
+                // Cores do Trello baseadas na imagem do usuário
+                const colorMap = {
+                    'concluído': '#2d7d46',
+                    'concluido': '#2d7d46',
+                    'feito': '#22c55e',
+                    'concluído com atraso': '#8a6d10',
+                    'atrasado': '#b02a26',
+                    'em andamento': '#7b46ad',
+                    'pendente': '#1d5fb8',
+                    'programado': '#8c9196',
+                    'sem etiqueta': '#e2e8f0'
+                };
+
+                data.data.data.forEach((person, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'person-chart-card';
+                    card.innerHTML = `
+                        <div class="person-chart-header">
+                            <span class="person-name">${person.name}</span>
+                        </div>
+                        <div class="person-chart-container">
+                            <canvas id="chart-${index}"></canvas>
+                        </div>
+                        <div class="chart-legend-custom" id="legend-${index}"></div>
+                    `;
+                    grid.appendChild(card);
+
+                    const ctx = document.getElementById(`chart-${index}`).getContext('2d');
+                    const stats = person.stats;
+
+                    const chartLabels = [];
+                    const chartData = [];
+                    const chartColors = [];
+
+                    // Filtrar apenas categorias com valor > 0 para o gráfico individual
+                    Object.entries(stats).forEach(([label, count]) => {
+                        if (count > 0) {
+                            chartLabels.push(label);
+                            chartData.push(count);
+
+                            // Tentar mapear cor
+                            const lowerLabel = label.toLowerCase();
+                            let color = '#94a3b8'; // Default grey
+                            for (const [key, val] of Object.entries(colorMap)) {
+                                if (lowerLabel.includes(key)) {
+                                    color = val;
+                                    break;
+                                }
+                            }
+                            chartColors.push(color);
+                        }
+                    });
+
+                    if (chartData.length === 0) {
+                        card.querySelector('.person-chart-container').innerHTML = '<p style="text-align:center; padding-top:60px; font-size:12px; opacity:0.5;">Sem atividades</p>';
+                        return;
+                    }
+
+                    const newChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: chartLabels,
+                            datasets: [{
+                                data: chartData,
+                                backgroundColor: chartColors,
+                                borderWidth: 0,
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '70%',
+                            plugins: {
+                                legend: { display: false }
+                            }
+                        }
+                    });
+                    teamCharts.push(newChart);
+
+                    // Criar legenda personalizada compacta
+                    const legendContainer = document.getElementById(`legend-${index}`);
+                    chartLabels.forEach((label, i) => {
+                        const item = document.createElement('div');
+                        item.className = 'legend-item';
+                        item.innerHTML = `
+                            <div class="legend-color" style="background: ${chartColors[i]}"></div>
+                            <span>${chartData[i]} ${label}</span>
+                        `;
+                        legendContainer.appendChild(item);
+                    });
+                });
+
+            } catch (err) {
+                console.error("Erro ao carregar gráficos individuais:", err);
+            }
         }
 
         async function loadSessions() {
             try {
                 const res = await fetch('/api/status/all');
                 const data = await res.json();
-                instances = data.data;
 
+                // Correção: data.data contém o array de sessões
+                instances = data.data || [];
                 const grid = document.getElementById('sessionsGrid');
-                // const addCard = grid.querySelector('.add-session-card'); // Removed as per instruction
                 grid.innerHTML = '';
 
-                // Mostrar apenas a sessão do usuário ou todas se for admin? (Por enquanto, focar no dele)
-                const userSession = instances.find(i => i.id === currentSession);
-
-                if (userSession) {
-                    const inst = userSession;
+                instances.forEach(sess => {
+                    // if (sess.id !== currentSession) return; // Removido para mostrar todas as sessões se desejar
                     const card = document.createElement('div');
-                    card.className = `session-card active`;
-                    // card.onclick = () => selectSession(inst.id); // Removed as per instruction
-
-                    let statusText = inst.status.replace('_', ' ');
-                    let qrHtml = '';
-
-                    if (inst.status === 'awaiting_qr') {
-                        qrHtml = `<div class="qr-placeholder" id="qr-${inst.id}">⌛ Carregando QR...</div>`;
-                        loadQR(inst.id);
-                    }
+                    card.className = `session-card ${sess.id === currentSession ? 'active' : ''}`;
+                    card.onclick = () => {
+                        // Se quiser trocar de sessão ativa no dashboard
+                        // currentSession = sess.id;
+                        // loadSessions();
+                        if (sess.status === 'awaiting_qr') loadQR(sess.id);
+                    };
 
                     card.innerHTML = `
-                        <div class="session-header">
-                            <span class="session-id">${inst.id}</span>
-                            <span class="status-pill ${inst.status}">${statusText}</span>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div class="logo-box" style="background:#f0f2f5; color:#000; font-size:14px; width:36px; height:36px;">📱</div>
+                            <div>
+                                <h4 style="font-size:14px; font-weight:700;">${sess.id}</h4>
+                                <span class="status-pill ${sess.status}">${sess.status}</span>
+                            </div>
                         </div>
-                        <div style="font-size:12px; display:flex; justify-content:space-between; align-items:center;">
-                            <span>${inst.number || 'Escaneie o QR Code'}</span>
-                            <!-- <span style="font-size:10px; color:${inst.hasQR ? 'var(--accent-blue)' : 'var(--text-secondary)'}">
-                                ${inst.status === 'connected' ? '✅ Online' : '⚙️ Configurando'}
-                            </span> -->
-                        </div>
-                        ${qrHtml}
-                        <!-- <div style="margin-top:10px; display:flex; gap:5px;">
-                            <button class="btn btn-secondary" style="flex:1; padding:5px; font-size:10px;" onclick="event.stopPropagation(); logout('${inst.id}')">Sair</button>
-                        </div> -->
+                        <div class="status-check"></div>
                     `;
                     grid.appendChild(card);
-                } else {
-                    grid.innerHTML = '<div style="color:var(--text-secondary)">Inicializando sua conexão...</div>';
-                }
-                // grid.appendChild(addCard); // Removed as per instruction
-            } catch (e) { console.error("Erro loadSessions", e); }
+                    if (sess.status === 'awaiting_qr' && sess.id === currentSession) loadQR(sess.id);
+                });
+            } catch (e) { console.error("Erro ao carregar sessões:", e); }
         }
 
+        let qrInterval = null;
         async function loadQR(id) {
-            const res = await fetch(`/api/status/qr?sessionId=${id}`);
-            const data = await res.json();
-            const container = document.getElementById(`qr-${id}`);
-            if (container && data.data.qrCode) {
-                container.innerHTML = `<img src="${data.data.qrCode}">`;
-            }
+            const modal = document.getElementById('qrModal');
+            const qrImage = document.getElementById('qrImage');
+            const qrLoading = document.getElementById('qrLoading');
+            const qrStatus = document.getElementById('qrStatus');
+
+            modal.style.display = 'flex';
+            qrImage.style.display = 'none';
+            qrLoading.style.display = 'block';
+            qrStatus.textContent = "Buscando QR Code...";
+
+            if (qrInterval) clearInterval(qrInterval);
+
+            qrInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/status/qr?sessionId=${id}`);
+                    const data = await res.json();
+
+                    if (data.data.connected) {
+                        qrStatus.textContent = "✅ Conectado com sucesso!";
+                        clearInterval(qrInterval);
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                            loadSessions();
+                        }, 2000);
+                        return;
+                    }
+
+                    if (data.data.qrCode) {
+                        qrImage.src = data.data.qrCode;
+                        qrImage.style.display = 'block';
+                        qrLoading.style.display = 'none';
+                        qrStatus.textContent = "Aguardando leitura...";
+                    }
+                } catch (e) {
+                    console.error("Erro ao buscar QR:", e);
+                }
+            }, 3000);
         }
 
-        // async function selectSession(id) { // Removed as per instruction
-        //     currentSession = id;
-        //     document.getElementById('currentSessionName').textContent = id;
-        //     loadSessions();
-        //     loadHistory('sent');
-        //     loadTrelloStatus();
-        // }
+        function closeQRModal() {
+            document.getElementById('qrModal').style.display = 'none';
+            if (qrInterval) clearInterval(qrInterval);
+        }
 
         async function loadTrelloStatus() {
-            const res = await fetch(`/api/trello/status?sessionId=${currentSession}`);
-            const data = await res.json();
-            const box = document.getElementById('trelloConfigBox');
-            const msg = document.getElementById('trelloStatusMsg');
+            try {
+                const res = await fetch(`/api/trello/status?sessionId=${currentSession}`);
+                const data = await res.json();
+                const msg = document.getElementById('trelloStatusMsg');
+                if (data.data.configured) {
+                    msg.innerHTML = `🟢 <b>${data.data.board.name}</b>`;
+                    loadMetrics();
+                } else {
+                    msg.textContent = "🔴 Não configurado.";
+                }
+            } catch (err) { }
+        }
 
-            if (data.data.configured) {
-                box.classList.add('configured');
-                msg.innerHTML = `🟢 Conectado ao Board: <b>${data.data.board.name}</b>`;
-            } else {
-                box.classList.remove('configured');
-                msg.textContent = "🔴 Trello não configurado para sua conta.";
-            }
+        async function loadMetrics() {
+            try {
+                const listIds = getSelectedListIds();
+                const url = `/api/trello/stats?sessionId=${currentSession}${listIds ? '&listIds=' + listIds : ''}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('stats-pending').textContent = data.data.pending;
+                    document.getElementById('stats-overdue').textContent = data.data.overdue;
+                    document.getElementById('stats-completed').textContent = data.data.completed;
+                }
+            } catch (err) { }
         }
 
         async function sendMessage() {
             const number = document.getElementById('targetNumber').value;
             const text = document.getElementById('messageText').value;
-
             if (!number || !text) return toast("Número e mensagem obrigatórios", "error");
-
-            const res = await fetch('/api/messages/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number, text, sessionId: currentSession })
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                toast("Enviado!", "success");
-                document.getElementById('messageText').value = '';
-                loadHistory('sent');
-                setTimeout(loadTrelloActions, 2000);
-            } else {
-                toast(data.error, "error");
-            }
-        }
-
-        // Funções auxiliares (History, Logout, Toast, etc) - Mantendo a lógica anterior
-        async function loadHistory(type) {
-            const res = await fetch(`/api/messages/${type}?sessionId=${currentSession}`);
-            const data = await res.json();
-            const list = document.getElementById('historyList');
-            list.innerHTML = data.data.length ? '' : '<div style="text-align:center; color: var(--text-secondary); margin-top: 40px;">Histórico vazio</div>';
-            data.data.forEach(msg => {
-                const item = document.createElement('div');
-                item.className = `msg-item ${type}`;
-                item.innerHTML = `<div class="msg-meta"><span>${msg.to || msg.from}</span><span>${new Date(msg.timestamp).toLocaleTimeString()}</span></div><div class="msg-content">${msg.content}</div>`;
-                list.appendChild(item);
-            });
+            toast("Enviando...", "info");
+            try {
+                const res = await fetch('/api/messages/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: currentSession, number, message: text })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    toast(data.message, "success");
+                    document.getElementById('messageText').value = '';
+                    loadTrelloActions();
+                    loadMetrics();
+                } else throw new Error(data.error);
+            } catch (e) { toast(e.message, "error"); }
         }
 
         async function loadTrelloActions() {
-            const res = await fetch('/api/trello/actions');
-            const data = await res.json();
-            const list = document.getElementById('trelloActions');
-            list.innerHTML = '';
-            data.data.slice(0, 10).forEach(action => {
-                const item = document.createElement('div');
-                item.className = 'action-item';
-                const cardsHtml = action.cards.map(c => `<a href="${c.cardUrl}" target="_blank" class="action-card-link">✅ ${c.cardName}</a>`).join(' ');
-                item.innerHTML = `<div style="font-size:12px; font-weight:700;">📱 ${action.number}</div>${cardsHtml}`;
-                list.appendChild(item);
-            });
+            try {
+                const res = await fetch('/api/trello/actions');
+                const data = await res.json();
+                const container = document.getElementById('trelloActions');
+                document.getElementById('actionsCount').textContent = data.data.length;
+                if (data.data.length === 0) return;
+                container.innerHTML = '';
+                data.data.slice(0, 5).forEach(action => {
+                    const item = document.createElement('div');
+                    item.className = 'action-item';
+                    item.style.background = 'rgba(255,255,255,0.05)';
+                    item.style.color = '#fff';
+                    item.innerHTML = `
+                        <div class="action-icon">💼</div>
+                        <div class="action-content">
+                            <h4>Confirmado: ${action.number}</h4>
+                            <p style="opacity:0.6">${action.cardsConfirmed} cartões atualizados</p>
+                            ${action.cards.map(c => `
+                                <a href="${c.cardUrl}" target="_blank" class="action-card-link" style="color:#fff; text-decoration:none; font-size:10px; margin-right:5px; background:var(--accent-trello)">Ver Card</a>
+                            `).join('')}
+                        </div>
+                    `;
+                    container.appendChild(item);
+                });
+            } catch (e) { }
         }
 
-        // async function promptNewSession() { // Removed as per instruction
-        //     const name = prompt("Nome da conta/empresa:");
-        //     if (name) {
-        //         await fetch('/api/status/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: name }) });
-        //         loadSessions();
-        //     }
-        // }
-
-        // async function logout(id) { // Removed as per instruction
-        //     if (!confirm(`Deseja desconectar a sessão ${id}?`)) return;
-        //     await fetch('/api/status/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: id }) });
-        //     loadSessions();
-        // }
-
-        function toast(msg, type) {
+        function toast(msg, type = "info") {
             const container = document.getElementById('toastContainer');
-            const t = document.createElement('div');
-            t.className = 'toast';
-            t.style.borderLeft = `4px solid ${type === 'success' ? 'var(--accent-green)' : (type === 'info' ? 'var(--accent-blue)' : '#ef4444')}`;
-            t.textContent = msg;
-            container.appendChild(t);
-            setTimeout(() => t.remove(), 4000);
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = msg;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
         }
 
-        // --- INICIALIZAÇÃO ---
+        async function logout() {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
+
+        function loadHistory() { /* Placeholder do original */ }
+        async function promptNewSession() {
+            const name = prompt("Digite um nome para a nova conexão (ex: Celular02):");
+            if (!name) return;
+
+            try {
+                toast("Iniciando nova sessão...", "info");
+                const res = await fetch('/api/status/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: name })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    loadSessions();
+                    loadQR(name);
+                } else {
+                    toast(data.error, "error");
+                }
+            } catch (e) {
+                toast("Erro ao criar sessão", "error");
+            }
+        }
+
         checkAuth();
     </script>
 </body>

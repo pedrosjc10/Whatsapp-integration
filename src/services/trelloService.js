@@ -4,6 +4,12 @@
 
 const TRELLO_BASE_URL = "https://api.trello.com/1";
 
+// Garantir compatibilidade com Node < 18 se necessário (O Render usa Node moderno, mas previne quebra)
+if (typeof fetch === "undefined") {
+    var fetch = require("node-fetch");
+}
+
+
 // Log de ações global (Poderia ser por sessão no futuro)
 const trelloActions = [];
 
@@ -19,6 +25,14 @@ function isConfigValid(config) {
  */
 async function trelloFetch(endpoint, config, method = "GET", body = null) {
     if (!isConfigValid(config)) throw new Error("Configuração do Trello incompleta");
+    return trelloFetchLight(endpoint, config, method, body);
+}
+
+/**
+ * Fetch leve que só precisa de apiKey e token (não exige boardId)
+ */
+async function trelloFetchLight(endpoint, config, method = "GET", body = null) {
+    if (!config || !config.apiKey || !config.token) throw new Error("API Key e Token do Trello são obrigatórios");
 
     const sep = endpoint.includes("?") ? "&" : "?";
     const url = `${TRELLO_BASE_URL}${endpoint}${sep}key=${config.apiKey}&token=${config.token}`;
@@ -131,6 +145,99 @@ module.exports = {
     isConfigValid,
     processConfirmation,
     findCardsWithNumber,
+    getUserBoards: (config) => trelloFetchLight(`/members/me/boards?fields=name,id`, config),
+    getBoardStats: async (config, filterListIds) => {
+        const stats = { pending: 0, overdue: 0, completed: 0, total: 0 };
+        const now = new Date();
+
+        try {
+            const cards = await trelloFetch(`/boards/${config.boardId}/cards?fields=due,dueComplete,idList`, config);
+
+            cards.forEach(card => {
+                // Se tiver filtro de listas, pular cards que não pertencem
+                if (filterListIds && filterListIds.length > 0 && !filterListIds.includes(card.idList)) return;
+
+                stats.total++;
+                if (card.dueComplete) {
+                    stats.completed++;
+                } else if (card.due && new Date(card.due) < now) {
+                    stats.overdue++;
+                } else {
+                    stats.pending++;
+                }
+            });
+        } catch (e) {
+            console.error(`Erro ao buscar stats:`, e.message);
+        }
+        return stats;
+    },
+    getDetailedBoardStats: async (config, filterListIds) => {
+        let labelMap = {};
+        let listMap = {};
+
+        try {
+            const [lists, labels, cards] = await Promise.all([
+                trelloFetch(`/boards/${config.boardId}/lists?fields=name&filter=open`, config),
+                trelloFetch(`/boards/${config.boardId}/labels?fields=name,color`, config),
+                trelloFetch(`/boards/${config.boardId}/cards?fields=idList,idLabels,name&filter=open&limit=1000`, config)
+            ]);
+
+            console.log(`📊 Trello Stats: ${lists.length} listas, ${labels.length} etiquetas, ${cards.length} cartões encontrados.`);
+
+            labels.forEach(l => {
+                labelMap[l.id] = l.name || l.color;
+            });
+
+            lists.forEach(l => {
+                listMap[l.id] = {
+                    id: l.id,
+                    name: l.name,
+                    stats: {}
+                };
+            });
+
+            cards.forEach(card => {
+                const list = listMap[card.idList];
+                if (list) {
+                    if (card.idLabels && card.idLabels.length > 0) {
+                        card.idLabels.forEach(labelId => {
+                            const labelName = labelMap[labelId];
+                            if (labelName) {
+                                list.stats[labelName] = (list.stats[labelName] || 0) + 1;
+                            }
+                        });
+                    } else {
+                        list.stats["Sem etiqueta"] = (list.stats["Sem etiqueta"] || 0) + 1;
+                    }
+                }
+            });
+
+        } catch (e) {
+            console.error(`Erro ao buscar detailed stats:`, e.message);
+        }
+
+        // Initialize zero stats
+        const allLabelNames = [...new Set(Object.values(labelMap))];
+        let resultData = Object.values(listMap);
+
+        // Filtrar por listas selecionadas se especificado
+        if (filterListIds && filterListIds.length > 0) {
+            resultData = resultData.filter(l => filterListIds.includes(l.id));
+        }
+
+        resultData.forEach(list => {
+            allLabelNames.forEach(labelName => {
+                if (list.stats[labelName] === undefined) list.stats[labelName] = 0;
+            });
+            if (list.stats["Sem etiqueta"] === undefined) list.stats["Sem etiqueta"] = 0;
+        });
+
+        return {
+            labels: allLabelNames.concat(["Sem etiqueta"]),
+            data: resultData,
+            allLists: Object.values(listMap).map(l => ({ id: l.id, name: l.name }))
+        };
+    },
     getTargetListId,
     getBoardInfo: (config) => trelloFetch(`/boards/${config.boardId}`, config),
     getBoardLists: (config) => trelloFetch(`/boards/${config.boardId}/lists`, config),
