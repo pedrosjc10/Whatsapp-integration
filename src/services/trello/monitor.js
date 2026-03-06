@@ -7,8 +7,8 @@ const trello = require("../trello/automation");
 function startTrelloMonitor() {
     console.log("👁️ Iniciando monitoramento de novos cartões no Trello...");
 
-    // Mapa para guardar o último ID processado por sessão
-    const lastProcessedIds = new Map();
+    // Mapa para evitar alertas duplicados caso contas diferentes monitorem o mesmo board
+    const recentlyNotifiedCards = new Set();
 
     setInterval(async () => {
         const User = require("../../models/User");
@@ -35,9 +35,22 @@ function startTrelloMonitor() {
                         config,
                         lastId,
                         async (card) => {
+                            // Se este card já foi notificado hoje (por esse ou outro número), ignoramos
+                            if (recentlyNotifiedCards.has(card.id)) {
+                                return;
+                            }
+                            // Agora registramos para que os próximos números ignorem esse arquivo
+                            recentlyNotifiedCards.add(card.id);
+
+                            // Mantém no máximo 500 cartões no histórico para economizar memória e evitar que crashe
+                            if (recentlyNotifiedCards.size > 500) {
+                                const iter = recentlyNotifiedCards.values();
+                                recentlyNotifiedCards.delete(iter.next().value);
+                            }
+
                             const listName = card.listName;
-                            const numbersOnly = listName.replace(/\D/g, "");
-                            const match = numbersOnly.match(/\d{10,15}/);
+                            // Encontra um número de 10 a 15 dígitos diretamente no texto original da lista
+                            const match = listName.match(/\d{10,15}/);
 
                             if (match) {
                                 const targetNumber = match[0];

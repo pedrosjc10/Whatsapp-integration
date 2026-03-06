@@ -20,7 +20,7 @@
         <header>
             <div class="logo-area">
                 <div class="logo-box">💬</div>
-                <h1 style="font-family: 'Outfit'; font-size: 20px; font-weight: 800;">Crextio.io</h1>
+                <h1 style="font-family: 'Outfit'; font-size: 20px; font-weight: 800;">Zynk.io</h1>
             </div>
             <nav id="topNav">
                 <a href="#" class="nav-item active" data-tab="dashboard">Dashboard</a>
@@ -41,18 +41,6 @@
                     <h2 class="welcome-title">Bem-vindo, <span id="userName">Nixtio</span></h2>
                     <p style="color: var(--text-secondary); font-size: 14px; font-weight: 500;">Gerencie sua automação
                         WhatsApp + Trello em tempo real.</p>
-                </div>
-
-                <div
-                    style="background: rgba(255,255,255,0.05); padding: 12px 16px; border-radius: 12px; min-width: 280px;">
-                    <label
-                        style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 8px; color: var(--text-secondary);">
-                        👥 Filtrar por Pessoa
-                    </label>
-                    <div id="listCheckboxes"
-                        style="max-height: 120px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 6px;">
-                        <span style="font-size: 12px; opacity: 0.5;">Carregando listas...</span>
-                    </div>
                 </div>
             </div>
 
@@ -89,6 +77,15 @@
                     <div class="sessions-list" id="sessionsGrid">
                         <!-- Session card fixed -->
                     </div>
+                    <div id="qrInlineContainer"
+                        style="display: none; margin-top: 20px; text-align: center; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px;">
+                        <p style="font-size: 13px; margin-bottom: 15px; color: var(--text-secondary);">Escaneie o QR
+                            Code para conectar.</p>
+                        <div id="qrInlineImage"
+                            style="background: #fff; padding: 15px; border-radius: 12px; display: inline-flex; min-width: 200px; min-height: 200px; align-items: center; justify-content: center;">
+                        </div>
+                        <p id="qrInlineStatus" style="margin-top: 15px; font-weight: 600; font-size: 13px;"></p>
+                    </div>
                 </div>
                 <div class="panel">
                     <span class="column-label">⚙️ Conexão Trello</span>
@@ -101,9 +98,22 @@
 
         <!-- ABA EQUIPE: TEAM CHARTS SECTION -->
         <div id="tab-equipe" class="tab-content panel" style="display: none; margin-top: 24px; padding: 32px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div
+                style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 20px;">
                 <h3 style="font-family: 'Outfit'; font-size: 20px;">📊 Status por Pessoa (Equipe)</h3>
-                <button class="btn-primary" style="width: auto; padding: 10px 20px; font-size: 12px;"
+                <div
+                    style="background: rgba(255,255,255,0.05); padding: 12px 16px; border-radius: 12px; min-width: 280px;">
+                    <label
+                        style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 8px; color: var(--text-secondary);">
+                        👥 Filtrar por Pessoa
+                    </label>
+                    <div id="listCheckboxes"
+                        style="max-height: 120px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="font-size: 12px; opacity: 0.5;">Carregando listas...</span>
+                    </div>
+                </div>
+                <button class="btn-primary"
+                    style="width: auto; padding: 10px 20px; font-size: 12px; align-self: center;"
                     onclick="loadDetailedStats()">🔄 Atualizar</button>
             </div>
             <div id="teamChartsGrid" class="team-charts-grid">
@@ -174,20 +184,7 @@
 
     </div>
 
-    <div id="qrModal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeQRModal()">&times;</span>
-            <h3 style="margin-bottom: 20px;">Conectar WhatsApp</h3>
-            <p style="font-size: 14px; margin-bottom: 20px; color: var(--text-secondary);">Escaneie o QR Code abaixo com
-                o seu celular para conectar.</p>
-            <div id="qrContainer"
-                style="text-align: center; background: #fff; padding: 20px; border-radius: 12px; display: inline-block; min-width: 250px; min-height: 250px; display: flex; align-items: center; justify-content: center;">
-                <p id="qrLoading" style="font-weight: 600; font-size: 14px; color: var(--text-secondary);">Gerando QR
-                    Code...</p>
-            </div>
-            <p id="qrStatus" style="margin-top: 20px; font-weight: 600; font-size: 14px;"></p>
-        </div>
-    </div>
+
 
     <div class="toast-container" id="toastContainer"></div>
 
@@ -317,10 +314,11 @@
 
                 // Cores do Trello baseadas na imagem do usuário
                 const colorMap = {
+                    'concluído com atraso': '#8a6d10',
+                    'concluido com atraso': '#8a6d10',
                     'concluído': '#2d7d46',
                     'concluido': '#2d7d46',
                     'feito': '#22c55e',
-                    'concluído com atraso': '#8a6d10',
                     'atrasado': '#b02a26',
                     'em andamento': '#7b46ad',
                     'pendente': '#1d5fb8',
@@ -477,12 +475,12 @@
 
         let qrInterval = null;
         async function loadQR(id) {
-            const modal = document.getElementById('qrModal');
-            const container = document.getElementById('qrContainer');
-            const statusLabel = document.getElementById('qrStatus');
+            const modal = document.getElementById('qrInlineContainer');
+            const container = document.getElementById('qrInlineImage');
+            const statusLabel = document.getElementById('qrInlineStatus');
 
-            modal.style.display = 'flex';
-            container.innerHTML = '<p id="qrLoading" style="font-weight: 600; font-size: 14px; color: var(--text-secondary);">Gerando QR Code...</p>';
+            modal.style.display = 'block';
+            container.innerHTML = '<p style="font-weight: 600; font-size: 13px; color: var(--text-secondary);">Gerando QR...</p>';
             statusLabel.textContent = "Buscando conexão...";
 
             // Garantir que a sessão esteja ativa no servidor
@@ -514,7 +512,7 @@
 
                     if (data.data.qrCode) {
                         statusLabel.textContent = "Aguardando leitura do QR Code...";
-                        container.innerHTML = `<img src="${data.data.qrCode}" style="width: 100%; max-width: 250px; border-radius: 8px;">`;
+                        container.innerHTML = `<img src="${data.data.qrCode}" style="width: 100%; max-width: 200px; border-radius: 8px;">`;
                     }
                 } catch (e) {
                     console.error("Erro ao buscar QR:", e);
@@ -523,7 +521,7 @@
         }
 
         function closeQRModal() {
-            document.getElementById('qrModal').style.display = 'none';
+            document.getElementById('qrInlineContainer').style.display = 'none';
             if (qrInterval) clearInterval(qrInterval);
         }
 
