@@ -23,9 +23,9 @@
                 <h1 style="font-family: 'Outfit'; font-size: 20px; font-weight: 800;">Crextio.io</h1>
             </div>
             <nav id="topNav">
-                <a href="#" class="nav-item active">Dashboard</a>
-                <a href="#" class="nav-item">Contas</a>
-                <a href="#" class="nav-item">Equipe</a>
+                <a href="#" class="nav-item active" data-tab="dashboard">Dashboard</a>
+                <a href="#" class="nav-item" data-tab="contas">Contas</a>
+                <a href="#" class="nav-item" data-tab="equipe">Equipe</a>
                 <a href="#" class="nav-item" onclick="logout()">Sair</a>
             </nav>
             <div style="display: flex; gap: 15px; align-items: center;">
@@ -34,7 +34,7 @@
         </header>
 
         <!-- WELCOME + KPIs -->
-        <div class="welcome-section">
+        <div class="welcome-section" id="section-welcome">
             <div
                 style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
                 <div>
@@ -81,9 +81,26 @@
             </div>
         </div>
 
-        <!-- TEAM CHARTS SECTION -->
-        <!-- TEAM CHARTS SECTION -->
-        <div class="panel" style="margin-top: 24px; padding: 32px; display: block;">
+        <!-- ABA CONTA: STATUS WPP E TRELLO -->
+        <div id="tab-contas" class="tab-content" style="display: none;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 24px;">
+                <div class="panel">
+                    <span class="column-label">Sua Conexão WhatsApp</span>
+                    <div class="sessions-list" id="sessionsGrid">
+                        <!-- Session card fixed -->
+                    </div>
+                </div>
+                <div class="panel">
+                    <span class="column-label">⚙️ Conexão Trello</span>
+                    <div id="trelloConfigBox" style="font-size: 13px; color: var(--text-secondary);">
+                        <p id="trelloStatusMsg">⌛ Carregando...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA EQUIPE: TEAM CHARTS SECTION -->
+        <div id="tab-equipe" class="tab-content panel" style="display: none; margin-top: 24px; padding: 32px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
                 <h3 style="font-family: 'Outfit'; font-size: 20px;">📊 Status por Pessoa (Equipe)</h3>
                 <button class="btn-primary" style="width: auto; padding: 10px 20px; font-size: 12px;"
@@ -97,51 +114,45 @@
             </div>
         </div>
 
-        <!-- MAIN LAYOUT: 3 COLUMNS -->
-        <div class="main-layout">
+        <!-- ABA DASHBOARD: MAIN LAYOUT (FILTROS, ENVIO, HISTÓRICO) -->
+        <div id="tab-dashboard" class="tab-content main-layout" style="display: grid;">
 
-            <!-- COL 1: Sessões e Status -->
-            <div>
-                <span class="column-label">Sua Conexão WhatsApp</span>
-                <div class="sessions-list" id="sessionsGrid">
-                    <!-- Session card fixed -->
-                </div>
-            </div>
-
-            <!-- COL 2: Painel Principal (Filtros e Envios) -->
-            <div>
+            <!-- COL 2 (Agora 1): Painel Principal (Filtros e Envios) -->
+            <div style="grid-column: span 2;">
                 <span class="column-label">Controle Central</span>
-                <div class="panel">
-                    <div class="panel-title">🎯 Filtros Inteligentes</div>
-                    <div class="form-group">
-                        <label>Palavras-Chave (Automático)</label>
-                        <input type="text" id="filterKeywords" placeholder="Ex: ok, feito, finalizar">
+                <div style="display: flex; gap: 24px;">
+                    <div class="panel" style="flex: 1;">
+                        <div class="panel-title">🎯 Filtros Inteligentes</div>
+                        <div class="form-group">
+                            <label>Palavras-Chave (Automático)</label>
+                            <input type="text" id="filterKeywords" placeholder="Ex: ok, feito, finalizar">
+                        </div>
+                        <div class="form-group">
+                            <label>Tipos de Mídia Aceitos</label>
+                            <input type="text" id="filterMediaTypes" placeholder="Ex: image, video, document">
+                        </div>
+                        <button class="btn-primary" onclick="saveFilters()">💾 Salvar Preferências</button>
                     </div>
-                    <div class="form-group">
-                        <label>Tipos de Mídia Aceitos</label>
-                        <input type="text" id="filterMediaTypes" placeholder="Ex: image, video, document">
-                    </div>
-                    <button class="btn-primary" onclick="saveFilters()">💾 Salvar Preferências</button>
-                </div>
 
-                <div class="panel" style="background: var(--accent-yellow); border: none;">
-                    <div class="panel-title">📨 Enviar Agora</div>
-                    <div class="form-group">
-                        <label style="color: #000;">Número do Destinatário</label>
-                        <input type="text" id="targetNumber" placeholder="5512999998888"
-                            style="background: #fff; border: none;">
+                    <div class="panel" style="flex: 1; background: var(--accent-yellow); border: none;">
+                        <div class="panel-title">📨 Enviar Agora</div>
+                        <div class="form-group">
+                            <label style="color: #000;">Número do Destinatário</label>
+                            <input type="text" id="targetNumber" placeholder="5512999998888"
+                                style="background: #fff; border: none;">
+                        </div>
+                        <div class="form-group">
+                            <label style="color: #000;">Mensagem / Comentário</label>
+                            <textarea id="messageText" placeholder="O que deseja enviar?"
+                                style="background: #fff; border: none; min-height: 100px; resize: none;"></textarea>
+                        </div>
+                        <button class="btn-primary" style="background: #121212;" onclick="sendMessage()">Enviar e
+                            Confirmar</button>
                     </div>
-                    <div class="form-group">
-                        <label style="color: #000;">Mensagem / Comentário</label>
-                        <textarea id="messageText" placeholder="O que deseja enviar?"
-                            style="background: #fff; border: none; min-height: 100px; resize: none;"></textarea>
-                    </div>
-                    <button class="btn-primary" style="background: #121212;" onclick="sendMessage()">Enviar e
-                        Confirmar</button>
                 </div>
             </div>
 
-            <!-- COL 3: Histórico / Trello Tasks -->
+            <!-- COL 3 (Agora 2): Histórico / Trello Tasks -->
             <div id="rightCol">
                 <span class="column-label">Onboarding Task</span>
                 <div class="panel"
@@ -157,16 +168,10 @@
                             em tempo real...</div>
                     </div>
                 </div>
-
-                <div class="panel" style="margin-top: 24px;">
-                    <div class="panel-title">⚙️ Conexão Trello</div>
-                    <div id="trelloConfigBox" style="font-size: 13px; color: var(--text-secondary);">
-                        <p id="trelloStatusMsg">⌛ Carregando...</p>
-                    </div>
-                </div>
             </div>
 
         </div>
+
     </div>
 
     <div id="qrModal" class="modal">
@@ -614,6 +619,34 @@
         }
 
         function loadHistory() { /* Placeholder do original */ }
+
+        // Lógica de Tabs
+        document.querySelectorAll('#topNav .nav-item').forEach(item => {
+            if (item.getAttribute('onclick')) return; // ignora Sair
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+
+                // Remove active de todos os botões
+                document.querySelectorAll('#topNav .nav-item').forEach(nav => nav.classList.remove('active'));
+
+                // Adiciona active no clicado
+                e.target.classList.add('active');
+
+                // Esconde todas as tabs
+                document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+
+                // Mostra a tab correspondente
+                const tabId = e.target.getAttribute('data-tab');
+                const targetTab = document.getElementById(`tab-${tabId}`);
+                if (targetTab) {
+                    if (tabId === 'dashboard') {
+                        targetTab.style.display = 'grid'; // .main-layout usa grid
+                    } else {
+                        targetTab.style.display = 'block';
+                    }
+                }
+            });
+        });
 
         checkAuth();
     </script>
