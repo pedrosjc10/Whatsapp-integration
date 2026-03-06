@@ -2,8 +2,8 @@ require("dotenv").config();
 
 const express = require("express");
 const path = require("path");
-const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
+const connectDB = require("./config/db");
 const { initAllSessions } = require("./services/whatsapp");
 const { protect } = require("./middlewares/authMiddleware");
 
@@ -35,59 +35,23 @@ app.get("/", protect, (req, res) => {
 
 // Iniciar servidor
 async function startServer() {
-    const MONGO_URI = process.env.MONGODB_URI;
-    if (!MONGO_URI) {
-        console.error("❌ ERRO: MONGODB_URI não configurado!");
-        process.exit(1);
-    }
+    // 1. Conectar ao Banco
+    await connectDB();
 
-    try {
-        console.log("🍃 Conectando ao MongoDB Atlas...");
-        // Garante que o banco se chamará 'whatsapp-saas'
-        await mongoose.connect(MONGO_URI, { dbName: 'whatsapp-saas' });
-        console.log("✅ MongoDB Conectado!");
+    // 2. Iniciar sessões do WhatsApp
+    console.log(" Iniciando sessões do WhatsApp...");
+    await initAllSessions();
 
-        // Iniciar sessões do WhatsApp APÓS o DB estar pronto
-        console.log("� Iniciando sessões do WhatsApp...");
-        await initAllSessions();
-    } catch (err) {
-        console.error("❌ Erro Crítico na Inicialização:", err.message);
-        // O Render reiniciará automaticamente se o processo for encerrado
-        process.exit(1);
-    }
+    // 3. Iniciar monitoramento do Trello (Notificações de novos cards)
+    const trello = require("./services/trello");
+    trello.startTrelloMonitor();
 
+    // 4. Rodar Escuta
     app.listen(PORT, "0.0.0.0", () => {
         console.log(`🚀 Servidor rodando em: http://localhost:${PORT}`);
+        console.log("🛑 Robô Fantasma DESATIVADO.");
 
-        // Robô Fantasma: Automação em segundo plano (roda sozinho)
-        // Usa as chaves do Banco de Dados (da conta logada)
-        const trello = require("./services/trelloService");
-        const User = require("./models/User");
-
-        const runRobot = async () => {
-            try {
-                // Pega os usuários no banco que configuraram o Trello
-                const users = await User.find({ "trelloConfig.apiKey": { $exists: true } });
-
-                for (const user of users) {
-                    const config = user.trelloConfig;
-                    if (trello.isConfigValid(config)) {
-                        console.log(`🤖 [FANTASMA] Organizando quadro: ${user.email} -> ${config.boardId}`);
-                        await trello.checkAndLabelOverdueCards(config);
-                        await trello.archiveOldCompletedCards(config, 7);
-                    }
-                }
-            } catch (err) {
-                console.error("❌ Erro no robô fantasma:", err.message);
-            }
-        };
-
-        // Roda ao iniciar e depois a cada 5 minutos
-        setTimeout(runRobot, 5000);
-        setInterval(runRobot, 300000);
-        console.log("✅ Robô Fantasma ativado no Servidor (BD Mode).");
-
-        // Keep-Alive para Render (opcional)
+        // Keep-Alive para Render
         const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
         if (RENDER_URL) {
             console.log(`🛰️ Keep-Alive ativo para: ${RENDER_URL}`);

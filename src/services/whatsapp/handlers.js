@@ -1,8 +1,9 @@
-const trello = require("../trelloService");
+const trello = require("../trello"); // Usando o novo serviço modularizado
 const store = require("./store");
 
 /**
  * Processador de Mensagens do WhatsApp
+ * Lida com filtros e integração com Trello
  */
 async function processIncomingMessage(sessionId, sock, msg) {
     const { instances, startupTimestamp } = store;
@@ -30,7 +31,6 @@ async function processIncomingMessage(sessionId, sock, msg) {
     else if (msg.message?.stickerMessage) { content = "[Sticker]"; mediaType = "sticker"; }
     else { content = "[Mídia/Outro]"; mediaType = "other"; }
 
-    // Lógica de Filtro (Pega da instância ou usa padrão vazio)
     const keywords = instanceData?.filterKeywords || [];
     const mediaTypes = instanceData?.filterMediaTypes || [];
 
@@ -48,24 +48,30 @@ async function processIncomingMessage(sessionId, sock, msg) {
             const searchTerms = new Set([senderNumber]);
             if (msg.pushName) searchTerms.add(msg.pushName);
 
-            // Tenta resolver números mascarados (@lid) se necessário
-            if (jid.endsWith("@lid")) {
+            // Tenta resolver números @lid apenas se estiver conectado
+            if (jid.endsWith("@lid") && instanceData?.status === "connected") {
                 try {
                     const [resolved] = await sock.onWhatsApp(jid);
                     if (resolved && resolved.jid) searchTerms.add(resolved.jid.split("@")[0]);
-                } catch (e) { }
+                } catch (e) {
+                    console.log(`⚠️ [${sessionId}] Não foi possível resolver @lid (conexão instável)`);
+                }
             }
 
             console.log(`\n${fromMe ? '📤' : '📥'} [${sessionId}] Filtro Passou: ${content.substring(0, 30)}...`);
             for (const term of searchTerms) {
-                if (instanceData?.trelloConfig) {
-                    trello.processConfirmation(term, content, fromMe ? "sent" : "received", instanceData.trelloConfig).catch(() => { });
+                if (instanceData?.trelloConfig && instanceData?.status === "connected") {
+                    try {
+                        await trello.processConfirmation(term, content, fromMe ? "sent" : "received", instanceData.trelloConfig);
+                    } catch (e) {
+                        console.error(`⚠️ [${sessionId}] Erro ao sincronizar com Trello:`, e.message);
+                    }
                 }
             }
         }
     }
 
-    // Registrar no histórico do Dashboard (Apenas se não for enviado por mim, ou conforme sua regra)
+    // Registrar no histórico do Dashboard
     if (!fromMe && instanceData) {
         const receivedMsg = {
             id: msg.key.id,
@@ -80,5 +86,5 @@ async function processIncomingMessage(sessionId, sock, msg) {
 }
 
 module.exports = {
-    processIncomingMessage
+    handleIncoming: processIncomingMessage
 };

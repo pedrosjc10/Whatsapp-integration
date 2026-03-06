@@ -37,6 +37,11 @@ const userSchema = new mongoose.Schema({
         type: [String],
         default: []
     },
+    // Controle de notificações de novos cards
+    lastTrelloCardId: {
+        type: String,
+        default: null
+    },
     createdAt: {
         type: Date,
         default: Date.now
@@ -44,8 +49,8 @@ const userSchema = new mongoose.Schema({
 }, { bufferCommands: false });
 
 // Encriptar senha antes de salvar
-userSchema.pre("save", async function (next) {
-    if (!this.isModified("password")) return next();
+userSchema.pre("save", async function () {
+    if (!this.isModified("password")) return;
     this.password = await bcrypt.hash(this.password, 10);
 });
 

@@ -9,19 +9,23 @@ const pino = require("pino");
 const path = require("path");
 const fs = require("fs");
 const store = require("./store");
-const { processIncomingMessage } = require("./processor");
 const User = require("../../models/User");
+
+const qrcode = require("qrcode-terminal");
 
 const logger = pino({ level: "silent" });
 
 /**
  * Inicializa uma instância do WhatsApp (Socket)
  */
-async function startWhatsApp(sessionId = "default") {
+async function createConnection(sessionId = "default", onMessage) {
     const { instances } = store;
 
-    if (instances.has(sessionId) && instances.get(sessionId).status === "connected") {
-        return instances.get(sessionId).sock;
+    // Trava de segurança: Se já estiver tentando conectar ou já conectado, não abre outra para o mesmo ID
+    const existing = instances.get(sessionId);
+    if (existing && (existing.status === "connected" || existing.status === "connecting" || existing.status === "awaiting_qr")) {
+        console.log(`ℹ️ [${sessionId}] Sessão já em andamento (Status: ${existing.status}). Pulando nova conexão.`);
+        return existing.sock;
     }
 
     const authPath = path.join(__dirname, "..", "..", "..", "sessions", sessionId);
@@ -35,7 +39,6 @@ async function startWhatsApp(sessionId = "default") {
     const sock = makeWASocket({
         version,
         logger,
-        printQRInTerminal: false,
         auth: state,
         generateHighQualityLinkPreview: true,
     });
@@ -53,14 +56,14 @@ async function startWhatsApp(sessionId = "default") {
             filterMediaTypes = user.filterMediaTypes || [];
         }
     } catch (e) {
-        console.error("Erro ao carregar dados do usuário no StartWhatsApp:", e.message);
+        console.error(`Erro ao carregar dados do usuário no StartWhatsApp [${sessionId}]:`, e.message);
     }
 
     const instanceData = {
         id: sessionId,
         sock,
         qrCode: null,
-        status: "disconnected",
+        status: "connecting",
         number: null,
         sentMessages: [],
         receivedMessages: [],
@@ -77,7 +80,8 @@ async function startWhatsApp(sessionId = "default") {
         if (qr) {
             instanceData.qrCode = qr;
             instanceData.status = "awaiting_qr";
-            console.log(`\n📱 [${sessionId}] QR Code gerado!`);
+            console.log(`\n📱 [${sessionId}] QR Code gerado! Escaneie abaixo:`);
+            qrcode.generate(qr, { small: true });
         }
 
         if (connection === "close") {
@@ -93,20 +97,28 @@ async function startWhatsApp(sessionId = "default") {
             if (shouldReconnect) {
                 await delay(3000);
                 if (instances.has(sessionId)) {
-                    startWhatsApp(sessionId);
+                    createConnection(sessionId, onMessage);
                 }
             } else {
-                console.log(`🚪 [${sessionId}] Logout/Encerramento detectado. Limpando...`);
+                console.log(`🚪 [${sessionId}] Logout/Encerramento detectado. Reiniciando para novo QR Code...`);
                 try {
-                    sock.ev.removeAllListeners();
-                    sock.end();
+                    sock.ev.removeAllListeners("connection.update");
+                    sock.ev.removeAllListeners("creds.update");
+                    sock.ev.removeAllListeners("messages.upsert");
+                    sock.end(); // Garante o fechamento total antes de apagar arquivos
+
                     if (fs.existsSync(authPath)) {
                         fs.rmSync(authPath, { recursive: true, force: true });
                     }
+
+                    // Delay para garantir que arquivos foram liberados
+                    await delay(3000);
+
+                    // Reinicia a conexão no mesmo ID para gerar novo QR
+                    createConnection(sessionId, onMessage);
                 } catch (e) {
-                    console.error(`Erro ao limpar ${sessionId}:`, e);
+                    console.error(`Erro ao reiniciar ${sessionId} pós-logout:`, e);
                 }
-                instances.delete(sessionId);
             }
         } else if (connection === "open") {
             instanceData.status = "connected";
@@ -116,14 +128,26 @@ async function startWhatsApp(sessionId = "default") {
         }
     });
 
-    sock.ev.on("creds.update", saveCreds);
+    sock.ev.on("creds.update", async () => {
+        try {
+            await saveCreds();
+        } catch (e) {
+            console.error(`⚠️ [${sessionId}] Erro ao salvar credenciais:`, e.message);
+        }
+    });
 
-    // Eventos de Mensagem
-    sock.ev.on("messages.upsert", async ({ messages: msgs, type }) => {
-        if (type !== "notify" && type !== "append") return;
-
-        for (const msg of msgs) {
-            await processIncomingMessage(sessionId, sock, msg);
+    // Repassar mensagens para o processador externo
+    sock.ev.on("messages.upsert", async ({ messages, type }) => {
+        try {
+            if (type === "notify" || type === "append") {
+                for (const msg of messages) {
+                    await onMessage(sessionId, sock, msg).catch(e => {
+                        console.error(`⚠️ [${sessionId}] Erro ao processar mensagem individual:`, e.message);
+                    });
+                }
+            }
+        } catch (e) {
+            console.error(`⚠️ [${sessionId}] Erro crítico no fluxo de mensagens:`, e.message);
         }
     });
 
@@ -131,5 +155,5 @@ async function startWhatsApp(sessionId = "default") {
 }
 
 module.exports = {
-    startWhatsApp
+    createConnection
 };

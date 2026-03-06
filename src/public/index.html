@@ -102,15 +102,10 @@
 
             <!-- COL 1: Sessões e Status -->
             <div>
-                <span class="column-label">Suas Sessões</span>
+                <span class="column-label">Sua Conexão WhatsApp</span>
                 <div class="sessions-list" id="sessionsGrid">
-                    <!-- Session cards will go here -->
+                    <!-- Session card fixed -->
                 </div>
-                <button class="btn-primary"
-                    style="margin-top: 24px; background: #fff; color: #000; border: 1px solid #eee;"
-                    onclick="promptNewSession()">
-                    + Nova Conexão
-                </button>
             </div>
 
             <!-- COL 2: Painel Principal (Filtros e Envios) -->
@@ -181,9 +176,9 @@
             <p style="font-size: 14px; margin-bottom: 20px; color: var(--text-secondary);">Escaneie o QR Code abaixo com
                 o seu celular para conectar.</p>
             <div id="qrContainer"
-                style="text-align: center; background: #fff; padding: 20px; border-radius: 12px; display: inline-block;">
-                <p id="qrLoading">Gerando QR Code...</p>
-                <img id="qrImage" src="" style="display: none; width: 100%; max-width: 250px;">
+                style="text-align: center; background: #fff; padding: 20px; border-radius: 12px; display: inline-block; min-width: 250px; min-height: 250px; display: flex; align-items: center; justify-content: center;">
+                <p id="qrLoading" style="font-weight: 600; font-size: 14px; color: var(--text-secondary);">Gerando QR
+                    Code...</p>
             </div>
             <p id="qrStatus" style="margin-top: 20px; font-weight: 600; font-size: 14px;"></p>
         </div>
@@ -417,50 +412,80 @@
             try {
                 const res = await fetch('/api/status/all');
                 const data = await res.json();
+                const instancesRepo = data.data || [];
 
-                // Correção: data.data contém o array de sessões
-                instances = data.data || [];
+                // Mostrar APENAS a sessão do usuário logado
+                const sess = instancesRepo.find(i => i.id === currentSession);
+
                 const grid = document.getElementById('sessionsGrid');
                 grid.innerHTML = '';
 
-                instances.forEach(sess => {
-                    // if (sess.id !== currentSession) return; // Removido para mostrar todas as sessões se desejar
-                    const card = document.createElement('div');
-                    card.className = `session-card ${sess.id === currentSession ? 'active' : ''}`;
-                    card.onclick = () => {
-                        // Se quiser trocar de sessão ativa no dashboard
-                        // currentSession = sess.id;
-                        // loadSessions();
-                        if (sess.status === 'awaiting_qr') loadQR(sess.id);
-                    };
+                if (!sess) {
+                    grid.innerHTML = '<p style="font-size:12px; opacity:0.5;">Iniciando conexão...</p>';
+                    return;
+                }
 
-                    card.innerHTML = `
-                        <div style="display:flex; align-items:center; gap:12px;">
+                const card = document.createElement('div');
+                card.className = `session-card active`;
+                card.style.cursor = 'default';
+
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                        <div style="display:flex; align-items:center; gap:12px; cursor:pointer;" 
+                             onclick="if('${sess.status}' !== 'connected') loadQR('${sess.id}')">
                             <div class="logo-box" style="background:#f0f2f5; color:#000; font-size:14px; width:36px; height:36px;">📱</div>
                             <div>
-                                <h4 style="font-size:14px; font-weight:700;">${sess.id}</h4>
+                                <h4 style="font-size:14px; font-weight:700;">WhatsApp</h4>
                                 <span class="status-pill ${sess.status}">${sess.status}</span>
                             </div>
                         </div>
-                        <div class="status-check"></div>
-                    `;
-                    grid.appendChild(card);
-                    if (sess.status === 'awaiting_qr' && sess.id === currentSession) loadQR(sess.id);
+                        ${sess.status === 'connected' ?
+                        `<button class="btn-primary" 
+                                style="width: auto; padding: 6px 12px; font-size: 11px; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;"
+                                onclick="disconnectSession('${sess.id}')">
+                                Desconectar
+                            </button>` : ''
+                    }
+                    </div>
+                `;
+                grid.appendChild(card);
+                if (sess.status === 'awaiting_qr') loadQR(sess.id);
+            } catch (e) { console.error("Erro ao carregar sessão:", e); }
+        }
+
+        async function disconnectSession(id) {
+            if (!confirm("Tem certeza que deseja desconectar o WhatsApp desta conta?")) return;
+            toast("Desconectando...", "info");
+            try {
+                const res = await fetch('/api/status/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: id })
                 });
-            } catch (e) { console.error("Erro ao carregar sessões:", e); }
+                const data = await res.json();
+                if (data.success) {
+                    toast("Desconectado! O sistema gerará um novo QR Code em instantes.", "success");
+                    loadSessions();
+                } else throw new Error(data.error);
+            } catch (e) { toast(e.message, "error"); }
         }
 
         let qrInterval = null;
         async function loadQR(id) {
             const modal = document.getElementById('qrModal');
-            const qrImage = document.getElementById('qrImage');
-            const qrLoading = document.getElementById('qrLoading');
-            const qrStatus = document.getElementById('qrStatus');
+            const container = document.getElementById('qrContainer');
+            const statusLabel = document.getElementById('qrStatus');
 
             modal.style.display = 'flex';
-            qrImage.style.display = 'none';
-            qrLoading.style.display = 'block';
-            qrStatus.textContent = "Buscando QR Code...";
+            container.innerHTML = '<p id="qrLoading" style="font-weight: 600; font-size: 14px; color: var(--text-secondary);">Gerando QR Code...</p>';
+            statusLabel.textContent = "Buscando conexão...";
+
+            // Garantir que a sessão esteja ativa no servidor
+            fetch('/api/status/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: id })
+            });
 
             if (qrInterval) clearInterval(qrInterval);
 
@@ -469,8 +494,11 @@
                     const res = await fetch(`/api/status/qr?sessionId=${id}`);
                     const data = await res.json();
 
+                    if (!data.success) return;
+
                     if (data.data.connected) {
-                        qrStatus.textContent = "✅ Conectado com sucesso!";
+                        statusLabel.textContent = "✅ WhatsApp Conectado!";
+                        container.innerHTML = '<div style="font-size: 50px;">✅</div>';
                         clearInterval(qrInterval);
                         setTimeout(() => {
                             modal.style.display = 'none';
@@ -480,10 +508,8 @@
                     }
 
                     if (data.data.qrCode) {
-                        qrImage.src = data.data.qrCode;
-                        qrImage.style.display = 'block';
-                        qrLoading.style.display = 'none';
-                        qrStatus.textContent = "Aguardando leitura...";
+                        statusLabel.textContent = "Aguardando leitura do QR Code...";
+                        container.innerHTML = `<img src="${data.data.qrCode}" style="width: 100%; max-width: 250px; border-radius: 8px;">`;
                     }
                 } catch (e) {
                     console.error("Erro ao buscar QR:", e);
@@ -588,29 +614,6 @@
         }
 
         function loadHistory() { /* Placeholder do original */ }
-        async function promptNewSession() {
-            const name = prompt("Digite um nome para a nova conexão (ex: Celular02):");
-            if (!name) return;
-
-            try {
-                toast("Iniciando nova sessão...", "info");
-                const res = await fetch('/api/status/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sessionId: name })
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    loadSessions();
-                    loadQR(name);
-                } else {
-                    toast(data.error, "error");
-                }
-            } catch (e) {
-                toast("Erro ao criar sessão", "error");
-            }
-        }
 
         checkAuth();
     </script>
